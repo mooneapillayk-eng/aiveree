@@ -25,6 +25,7 @@ exports.handler = async (event) => {
     const profile = await getProfile(userId);
     const today = new Date().toDateString();
     
+    // Daily reset: if last reset wasn't today, give 3 fresh credits
     if (profile && profile.credit_date !== today && action !== 'set') {
       await supabase.from('profiles').update({credits:3, credit_date:today}).eq('id',userId);
       if (action === 'get') return {statusCode:200,headers:h,body:JSON.stringify({credits:3,is_pro:profile?.is_pro||false})};
