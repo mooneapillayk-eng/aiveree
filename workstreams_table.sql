@@ -37,10 +37,17 @@ create index if not exists dashboards_user_goal_idx
 alter table public.workstreams enable row level security;
 alter table public.dashboards enable row level security;
 
+-- Owner-scoped policies. The service-role key (used by the Netlify functions)
+-- bypasses RLS, so the backend is unaffected; these only matter if the anon/auth
+-- client ever queries these tables directly from the browser — in which case each
+-- user sees only their own rows. user_id stores the auth user id (text), so cast
+-- auth.uid() to text to compare.
 drop policy if exists "workstreams_service" on public.workstreams;
-create policy "workstreams_service" on public.workstreams
-  for all using (true) with check (true);
+drop policy if exists "workstreams_owner" on public.workstreams;
+create policy "workstreams_owner" on public.workstreams
+  for all using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
 
 drop policy if exists "dashboards_service" on public.dashboards;
-create policy "dashboards_service" on public.dashboards
-  for all using (true) with check (true);
+drop policy if exists "dashboards_owner" on public.dashboards;
+create policy "dashboards_owner" on public.dashboards
+  for all using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
