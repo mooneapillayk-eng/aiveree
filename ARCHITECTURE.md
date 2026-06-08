@@ -66,20 +66,35 @@ It also generates `suggested_capabilities` — goal-specific action buttons (not
 
 ## Environment variables (set in Netlify)
 
-`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`.
+Core: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`.
+
+Security / config (added):
+- `INTERNAL_SECRET` — shared secret for service-to-service calls (claude→memory/events, digest→events/memory, whatsapp→tts). If unset, internal calls degrade gracefully but cross-function context (memory injection, event logging) won't work.
+- `CRON_SECRET` — header secret to manually trigger `digest.js`; the native Netlify schedule needs no header.
+- `ADMIN_KEY` — required to manually trigger `data-ingest.js`; `ADMIN_SECRET` gates `admin.js`.
+- `ALLOWED_ORIGINS` — comma-separated extra origins for the CORS allowlist (in addition to `URL`/`DEPLOY_PRIME_URL` and localhost).
+- `CLAUDE_MODEL` — overrides the default model id used by all functions.
+- `FREE_DAILY_CREDITS` — free-tier credits per day (default 5).
+
+## Security model
+
+- **Token auth.** All user-facing functions derive `user_id` from the Supabase bearer token (`requireUser`/`resolveUser` in `lib/shared.js`), never from the request body. The frontend obtains a real session via `auth.js` and attaches it with `apiFetch`.
+- **Onboarding exception.** `claude.js` accepts an unauthenticated call only when `mode:"onboarding"`, under a tight per-IP daily cap, so the pre-signup flow works without opening the proxy.
+- **Credit gating.** Billable Claude/agent calls consume a server-side credit (`consumeCredit`); out-of-credit returns HTTP 402.
+- **Rate limiting + CORS.** Per-user/IP limits (`rate_limits` table) and an origin allowlist replace the previous `*` CORS.
+- **Webhooks/cron.** `whatsapp.js` verifies the Twilio signature; scheduled jobs reject public HTTP without the internal/cron/admin secret.
 
 ## Known issues / suggested review focus
 
-1. **Payments are stubs.** `stripe.js`, `subscribe.js` return success without doing anything. No real billing yet.
-2. **`App.jsx` is a single 1,500-line file.** Candidate for component extraction (`Homepage`, `Onboarding`, `AuthScreen`, `CommandCentre`, `CapabilityRunner`). Review for maintainability.
-3. **Embeddings cost/latency.** Every memory write calls OpenAI. Review batching/caching.
-4. **Workstream execution runs N sequential Claude calls** on dashboard load (one per task, some with web search). Review latency, cost, and credit accounting (currently the dashboard build and workstream exec may not decrement credits the same way chat does — verify intended behaviour).
-5. **`user_id` is `user.id || user.email`.** Confirm this is stable and consistent across all function calls and table keys.
-6. **All inline styles, no design system.** Review for consistency and whether a token layer is warranted.
-7. **No automated tests.** Review critical paths (auth, persistence) for test coverage needs.
-8. **Security:** functions use `SUPABASE_SERVICE_KEY` (bypasses RLS) and permissive `using(true)` policies. Review the trust boundary — is any function callable without auth that shouldn't be?
-9. **Secrets hygiene:** confirm no keys are committed; `ELEVENLABS_API_KEY` was previously exposed in chat and should be rotated.
+1. **Payments are stubs.** `stripe.js`, `subscribe.js` return success without doing anything — **deferred** until a Stripe account + price IDs + webhook secret exist.
+2. **`App.jsx` is a single ~1,500-line file.** Component extraction is **deferred** to a follow-up to keep this security pass reviewable.
+3. **Schema drift (needs live-DB confirmation).** Auth/credits use table `profiles`; `src/supabase.js` and some functions read `user_profiles`, `user_state`, `goals`, etc. The live schema could not be verified from this environment (the network policy blocks `api.supabase.com`). Confirm which tables/columns exist and consolidate.
+4. **Secrets hygiene:** `ELEVENLABS_API_KEY` (and any Supabase access token shared in chat) should be **rotated**.
 
 ## Database
 
-`workstreams_table.sql` (this build) creates `workstreams` and `dashboards` tables — must be run in Supabase. A larger schema (`aiveree_schema_v3.1.sql`, 17 tables, not in this bundle) defines the full memory/goals/tasks/approvals model; confirm which tables actually exist in the live project.
+Run in Supabase: `workstreams_table.sql` (`workstreams`, `dashboards`), `supabase_storage_setup.sql`, and `security_setup.sql` (`rate_limits`, supports rate limiting). A larger schema (`aiveree_schema_v3.1.sql`, 17 tables, not in this bundle) defines the full memory/goals/tasks/approvals model; confirm which tables actually exist in the live project.
+
+## Tests / CI
+
+`npm test` (Vitest) covers the shared auth/CORS helpers. GitHub Actions (`.github/workflows/ci.yml`) runs build + tests on push/PR.

@@ -994,7 +994,8 @@ Requirements:
       dash.active_workstreams.forEach((_,i)=>{init[i]={status:"in_progress"};});
       setWsState(init);
       const results={...init};
-      for(let i=0;i<dash.active_workstreams.length;i++){
+      // Execute one workstream and persist its result.
+      const runOne=async(i)=>{
         const ws=dash.active_workstreams[i];
         try{
           const needsResearch=/research|track|monitor|analy|map|identif|find|scan|market|salary|compan/i.test(ws.title+" "+ws.detail);
@@ -1028,7 +1029,13 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
             });
           }catch{}
         }
-      }
+      };
+      // Run with bounded concurrency (3 at a time) rather than serially.
+      const queue=dash.active_workstreams.map((_,i)=>i);
+      const workers=Array.from({length:Math.min(3,queue.length)},async()=>{
+        while(queue.length){ await runOne(queue.shift()); }
+      });
+      await Promise.all(workers);
     })();
   },[dash]);
 

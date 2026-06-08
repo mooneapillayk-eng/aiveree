@@ -19,14 +19,18 @@ const MAX_MESSAGES_CHARS = 100000;
 
 // ─── SCHEMA VALIDATOR ─────────────────────────────────────────────────────────
 const SCHEMAS = {
+  // Matches the workspace the frontend actually renders (CommandCentre):
+  // momentum / next_best_action / active_workstreams / open_loops /
+  // quiet_progress / suggested_capabilities.
   dashboard: {
-    required: ['journey_stage', 'agent_insight', 'action_prompts', 'milestones', 'quick_wins'],
+    required: ['momentum', 'next_best_action', 'active_workstreams', 'open_loops', 'quiet_progress', 'suggested_capabilities'],
     validate: (d) => {
-      if (typeof d.journey_stage !== 'string') return 'journey_stage must be string';
-      if (typeof d.agent_insight !== 'string') return 'agent_insight must be string';
-      if (!Array.isArray(d.action_prompts) || d.action_prompts.length === 0) return 'action_prompts must be non-empty array';
-      if (!Array.isArray(d.milestones) || d.milestones.length === 0) return 'milestones must be non-empty array';
-      if (!Array.isArray(d.quick_wins) || d.quick_wins.length === 0) return 'quick_wins must be non-empty array';
+      if (!d.momentum || typeof d.momentum.headline !== 'string') return 'momentum.headline must be string';
+      if (!d.next_best_action || typeof d.next_best_action.text !== 'string') return 'next_best_action.text must be string';
+      if (!Array.isArray(d.active_workstreams) || d.active_workstreams.length === 0) return 'active_workstreams must be non-empty array';
+      if (!Array.isArray(d.open_loops)) return 'open_loops must be array';
+      if (!Array.isArray(d.quiet_progress)) return 'quiet_progress must be array';
+      if (!Array.isArray(d.suggested_capabilities) || d.suggested_capabilities.length === 0) return 'suggested_capabilities must be non-empty array';
       return null;
     },
   },
