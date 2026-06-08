@@ -111,12 +111,12 @@ exports.handler = async (event) => {
     // Get users to digest
     let users = [];
     if (targetUserId) {
-      const { data } = await supabase.from('user_profiles').select('id, name, preferred_channel, whatsapp_number').eq('id', targetUserId);
+      const { data } = await supabase.from('profiles').select('id, name, preferred_channel, whatsapp_number').eq('id', targetUserId);
       users = data || [];
     } else {
       // Get all users active in last 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30*86400000).toISOString();
-      const { data } = await supabase.from('user_profiles')
+      const { data } = await supabase.from('profiles')
         .select('id, name, preferred_channel, whatsapp_number')
         .gte('last_active_at', thirtyDaysAgo)
         .limit(100);

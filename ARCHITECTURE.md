@@ -80,7 +80,7 @@ Security / config (added):
 
 - **Token auth.** All user-facing functions derive `user_id` from the Supabase bearer token (`requireUser`/`resolveUser` in `lib/shared.js`), never from the request body. The frontend obtains a real session via `auth.js` and attaches it with `apiFetch`.
 - **Onboarding exception.** `claude.js` accepts an unauthenticated call only when `mode:"onboarding"`, under a tight per-IP daily cap, so the pre-signup flow works without opening the proxy.
-- **Credit gating.** Billable Claude/agent calls consume a server-side credit (`consumeCredit`); out-of-credit returns HTTP 402.
+- **Credit gating.** `profiles.credits` is server-authoritative: billable Claude/agent calls consume a credit server-side (`consumeCredit`, keyed off the bearer-token user id), out-of-credit returns HTTP 402, and the post-charge balance is returned as `credits_remaining` so the client reflects the server figure rather than its own optimistic count.
 - **Rate limiting + CORS.** Per-user/IP limits (`rate_limits` table) and an origin allowlist replace the previous `*` CORS.
 - **Webhooks/cron.** `whatsapp.js` verifies the Twilio signature; scheduled jobs reject public HTTP without the internal/cron/admin secret.
 
@@ -88,12 +88,30 @@ Security / config (added):
 
 1. **Payments are stubs.** `stripe.js`, `subscribe.js` return success without doing anything — **deferred** until a Stripe account + price IDs + webhook secret exist.
 2. **`App.jsx` is a single ~1,500-line file.** Component extraction is **deferred** to a follow-up to keep this security pass reviewable.
-3. **Schema drift (needs live-DB confirmation).** Auth/credits use table `profiles`; `src/supabase.js` and some functions read `user_profiles`, `user_state`, `goals`, etc. The live schema could not be verified from this environment (the network policy blocks `api.supabase.com`). Confirm which tables/columns exist and consolidate.
+3. **Schema — consolidated onto `profiles`.** `profiles` is the live table (`user_profiles` does not exist); all functions now read/write `profiles`. Run `profiles_consolidation.sql` to add the channel/activity columns the WhatsApp/digest/events functions expect. The memory, events, and workstreams functions still depend on their own tables (`memories` + RPCs, `events`, `workstreams`/`dashboards`) — see Database below. Every callsite degrades gracefully (try/catch, ignored failures), so the core app runs before those migrations, but treat those features as **not wired in** until their SQL has been applied.
 4. **Secrets hygiene:** `ELEVENLABS_API_KEY` (and any Supabase access token shared in chat) should be **rotated**.
 
 ## Database
 
-Run in Supabase: `workstreams_table.sql` (`workstreams`, `dashboards`), `supabase_storage_setup.sql`, and `security_setup.sql` (`rate_limits`, supports rate limiting). A larger schema (`aiveree_schema_v3.1.sql`, 17 tables, not in this bundle) defines the full memory/goals/tasks/approvals model; confirm which tables actually exist in the live project.
+The app standardises on a single `profiles` table (keyed by `auth.users.id`); the
+legacy `user_profiles` table is no longer referenced anywhere.
+
+Run in Supabase, in this order:
+
+1. `profiles_consolidation.sql` — adds the channel/activity columns
+   (`preferred_channel`, `whatsapp_number`, `whatsapp_format`, `language_code`,
+   `timezone`, `onboarded_at`, `last_active_at`) to the existing `profiles` table.
+2. `security_setup.sql` — `rate_limits` (backs rate limiting in `lib/shared.js`).
+3. `workstreams_table.sql` — `workstreams`, `dashboards` (workstream persistence).
+4. `supabase_storage_setup.sql` — `voice-notes` bucket + `profiles.whatsapp_format`.
+
+The **memory** and **events** functions additionally require the larger canonical
+schema (`aiveree_schema_v3.1.sql`, 17 tables — `memories` + the `get_user_context`
+/ `match_memories` RPCs, `events`, `goals`, `tasks`, `approvals`, `communications`,
+etc.), which is maintained outside this bundle. Until that schema and the migrations
+above are applied, the memory/events/workstreams features are **not wired in**: the
+functions return errors that every caller swallows, so the core product keeps
+working and these features light up once their tables exist.
 
 ## Tests / CI
 

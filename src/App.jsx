@@ -770,6 +770,8 @@ function CapabilityRunner({cap,intel,domainColor,onClose,onCreditUsed,credits}){
       const res=await apiFetch("/.netlify/functions/claude",{messages:[{role:"user",content:userPrompt}],system,useSearch:true});
       if(res.status===402){setOutput("You've used all your free tasks for now. They refresh daily.");saveCredits(0);onCreditUsed(0);setLoading(false);return;}
       const data=await res.json();
+      // Reconcile with the server's authoritative balance (profiles.credits).
+      if(typeof data.credits_remaining==="number"){saveCredits(data.credits_remaining);onCreditUsed(data.credits_remaining);}
       const text=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n\n"):"";
       setOutput(text||"Something went wrong. Please try again.");
       // Speak a brief summary
@@ -1058,6 +1060,8 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
       const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system,useSearch:true});
       if(res.status===402){setShowCreditGate(true);saveCredits(0);onCreditUsed(0);setChatBusy(false);return;}
       const data=await res.json();
+      // Reconcile with the server's authoritative balance (profiles.credits).
+      if(typeof data.credits_remaining==="number"){saveCredits(data.credits_remaining);onCreditUsed(data.credits_remaining);}
       const reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Something went wrong.";
       setChatMsgs([...next,{role:"assistant",content:reply}]);
       // Speak first 2 sentences as summary, rest is shown as text
@@ -1453,7 +1457,7 @@ export default function App(){
         // 7. Ask for WhatsApp number and voice/text preference
         const waResult = await requestPhoneNumber(u.name);
         if (waResult?.phone) {
-          await supabase.from('user_profiles').update({
+          await supabase.from('profiles').update({
             whatsapp_number: waResult.phone,
             preferred_channel: 'whatsapp',
             whatsapp_format: waResult.format

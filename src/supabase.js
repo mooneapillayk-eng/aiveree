@@ -103,11 +103,11 @@ export async function apiFetch(path, body, { onboarding = false } = {}) {
 export async function createUserProfile(userId, data) {
   if (!isConfigured || !userId) return null
   try {
-    await supabase.from('user_profiles').upsert({
+    await supabase.from('profiles').upsert({
       id: userId, name: data.name, email: data.email,
       preferred_channel: 'app', language_code: 'en', timezone: 'Europe/London',
       onboarded_at: new Date().toISOString(), last_active_at: new Date().toISOString(),
-      credits_remaining: 5, plan: 'free'
+      credits: 5, credit_date: new Date().toDateString(), is_pro: false, plan: 'free'
     })
   } catch (e) { console.warn('createUserProfile:', e.message) }
 }

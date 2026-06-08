@@ -1,6 +1,6 @@
 // ─── AIVEREE WHATSAPP SERVICE ─────────────────────────────────────────────────
 // Sends text messages OR voice notes based on user preference
-// whatsapp_format: 'text' | 'voice' stored in user_profiles
+// whatsapp_format: 'text' | 'voice' stored in profiles
 
 const crypto = require('crypto');
 const { supabase, corsHeaders, resolveUser, internalSecretOk, INTERNAL_HEADERS, CLAUDE_MODEL, HttpError } = require('./lib/shared');
@@ -174,7 +174,7 @@ exports.handler = async (event) => {
       const message = body.get('Body');
 
       if (from && message) {
-        const { data: profile } = await supabase.from('user_profiles')
+        const { data: profile } = await supabase.from('profiles')
           .select('id, name').eq('whatsapp_number', from).single();
 
         if (profile) {
@@ -217,7 +217,7 @@ exports.handler = async (event) => {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id and message required" }) };
         }
 
-        const { data: profile } = await supabase.from('user_profiles')
+        const { data: profile } = await supabase.from('profiles')
           .select('whatsapp_number, whatsapp_format, name').eq('id', user_id).single();
 
         if (!profile?.whatsapp_number) {
@@ -239,7 +239,7 @@ exports.handler = async (event) => {
       // Daily proactive check
       case 'proactive_check': {
         const results = [];
-        const { data: users } = await supabase.from('user_profiles')
+        const { data: users } = await supabase.from('profiles')
           .select('id, name, whatsapp_number, whatsapp_format, last_active_at')
           .not('whatsapp_number', 'is', null)
           .limit(200);
@@ -290,7 +290,7 @@ exports.handler = async (event) => {
         const { user_id } = params;
         if (!user_id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
 
-        const { data: profile } = await supabase.from('user_profiles')
+        const { data: profile } = await supabase.from('profiles')
           .select('name, whatsapp_number, whatsapp_format').eq('id', user_id).single();
         const { data: goal } = await supabase.from('goals')
           .select('title').eq('user_id', user_id).eq('status', 'active')
@@ -325,7 +325,7 @@ exports.handler = async (event) => {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id and action_text required" }) };
         }
 
-        const { data: profile } = await supabase.from('user_profiles')
+        const { data: profile } = await supabase.from('profiles')
           .select('name, whatsapp_number, whatsapp_format').eq('id', user_id).single();
         const { data: goal } = await supabase.from('goals')
           .select('title').eq('user_id', user_id).eq('status', 'active')

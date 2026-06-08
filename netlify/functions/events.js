@@ -113,7 +113,7 @@ exports.handler = async (event) => {
         if (!user_id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
 
         const { data: profile } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .select('last_active_at, preferred_channel, name')
           .eq('id', user_id)
           .single();

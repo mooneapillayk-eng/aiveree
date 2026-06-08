@@ -143,9 +143,13 @@ exports.handler = async (event) => {
     // Charge a credit for authenticated, user-initiated, billable actions.
     // Internal/background generation passes billable:false; onboarding is free.
     const billable = !!user && !onboarding && body.billable !== false;
+    let creditInfo = null;
     if (billable) {
       const credit = await consumeCredit(user.id);
-      if (!credit.ok) return json(402, CORS, { error: 'No credits remaining' });
+      if (!credit.ok) return json(402, CORS, { error: 'No credits remaining', credits_remaining: 0 });
+      // profiles.credits is the single source of truth; hand the post-charge balance
+      // back so the client reflects the server figure instead of guessing locally.
+      creditInfo = { credits_remaining: credit.credits, is_pro: credit.is_pro };
     }
 
     const userId = user?.id || null;
@@ -238,7 +242,8 @@ exports.handler = async (event) => {
       fireEvent(eventType, userId, { message_count: messages.length }, projectId);
     }
 
-    return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
+    const payload = creditInfo ? { ...result, ...creditInfo } : result;
+    return { statusCode: 200, headers: CORS, body: JSON.stringify(payload) };
   } catch (err) {
     console.error('Claude service error:', err);
     return json(500, CORS, { error: 'Claude service failed', detail: err.message });

@@ -32,8 +32,8 @@ ON storage.objects FOR ALL
 USING (bucket_id = 'voice-notes')
 WITH CHECK (bucket_id = 'voice-notes');
 
--- Add whatsapp_format column to user_profiles if not exists
-ALTER TABLE user_profiles
+-- Add whatsapp_format column to profiles if not exists
+ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS whatsapp_format TEXT DEFAULT 'text';
 -- whatsapp_format: 'text' | 'voice'
 
