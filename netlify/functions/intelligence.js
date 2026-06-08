@@ -1,4 +1,5 @@
 const {createClient} = require('@supabase/supabase-js');
+const { CLAUDE_MODEL } = require('./lib/shared');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const h = {
   'Access-Control-Allow-Origin':'*',
@@ -110,7 +111,7 @@ If any field is not mentioned, use an empty string or empty array.`;
           "anthropic-version": "2023-06-01"
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: CLAUDE_MODEL,
           max_tokens: 1000,
           system: summaryPrompt,
           messages: [{role:"user", content: JSON.stringify(conversation)}]

@@ -2,14 +2,27 @@
 // Sends text messages OR voice notes based on user preference
 // whatsapp_format: 'text' | 'voice' stored in user_profiles
 
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const crypto = require('crypto');
+const { supabase, corsHeaders, resolveUser, internalSecretOk, INTERNAL_HEADERS, CLAUDE_MODEL, HttpError } = require('./lib/shared');
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json"
-};
+// Verify an inbound Twilio webhook signature (HMAC-SHA1 over URL + sorted params).
+// Returns false when unconfigured, so an unsigned request is never trusted.
+function verifyTwilioSignature(event) {
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const sig = event.headers['x-twilio-signature'] || event.headers['X-Twilio-Signature'];
+  if (!token || !sig) return false;
+  const url = event.rawUrl || `https://${event.headers.host || ''}${event.path || ''}`;
+  const params = new URLSearchParams(event.body || '');
+  const sortedKeys = [...params.keys()].sort();
+  let data = url;
+  for (const k of sortedKeys) data += k + params.get(k);
+  const expected = crypto.createHmac('sha1', token).update(Buffer.from(data, 'utf-8')).digest('base64');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 // ─── SEND VIA TWILIO ──────────────────────────────────────────────────────────
 async function sendTwilioMessage({ to, body, mediaUrl }) {
@@ -49,7 +62,7 @@ async function generateVoiceNoteUrl(text, userId) {
   const baseUrl = process.env.URL || 'https://aiveree.com';
   const res = await fetch(`${baseUrl}/.netlify/functions/elevenlabs-tts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
     body: JSON.stringify({ text, mode: 'whatsapp', userId })
   });
 
@@ -79,7 +92,7 @@ async function generateMessage(userId, userName, messageType, context) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: CLAUDE_MODEL,
       max_tokens: 200,
       system: "You are Aiveree writing a personal WhatsApp message. Warm, human, specific. Never generic, never robotic. Return only the message text.",
       messages: [{ role: "user", content: prompts[messageType] || prompts.drifting }]
@@ -147,10 +160,14 @@ async function sendToUser({ userId, userName, whatsappNumber, whatsappFormat, me
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
-  // Twilio inbound webhook
+  // Twilio inbound webhook — only act on a verified signature.
   if (event.httpMethod === "POST" && event.headers['x-twilio-signature']) {
+    if (!verifyTwilioSignature(event)) {
+      return { statusCode: 403, headers: { "Content-Type": "text/xml" }, body: '<Response></Response>' };
+    }
     try {
       const body = new URLSearchParams(event.body);
       const from = body.get('From')?.replace('whatsapp:', '');
@@ -178,6 +195,18 @@ exports.handler = async (event) => {
 
   try {
     const { action, ...params } = JSON.parse(event.body || "{}");
+
+    // Sending WhatsApp messages is privileged. System-wide sweeps are internal-only;
+    // per-user sends require the acting user's token (or an internal call).
+    if (action === 'proactive_check') {
+      if (!internalSecretOk(event)) {
+        return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: "Forbidden" }) };
+      }
+    } else {
+      const { userId } = await resolveUser(event, params);
+      if (!userId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
+      params.user_id = userId;
+    }
 
     switch (action) {
 
@@ -324,6 +353,7 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
     }
   } catch (err) {
+    if (err instanceof HttpError) return { statusCode: err.status, headers: CORS, body: JSON.stringify({ error: err.message }) };
     console.error('WhatsApp error:', err);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'WhatsApp service failed', detail: err.message }) };
   }

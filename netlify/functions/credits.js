@@ -1,56 +1,54 @@
-const {createClient} = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const h = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type,Authorization','Content-Type':'application/json'};
+// ─── AIVEREE CREDITS ──────────────────────────────────────────────────────────
+// Free-tier credit tracking. Auth is required; the user id always comes from the
+// bearer token. There is deliberately no client-settable "set" action.
 
-async function getUserId(token) {
-  const { data } = await supabase.auth.getUser(token);
-  return data?.user?.id;
-}
+const { supabase, corsHeaders, requireUser, consumeCredit, FREE_DAILY_CREDITS, HttpError } = require('./lib/shared');
 
 async function getProfile(userId) {
-  const { data } = await supabase.from('profiles').select('credits,is_pro,plan,credit_date').eq('id',userId).single();
+  const { data } = await supabase
+    .from('profiles')
+    .select('credits,is_pro,plan,credit_date')
+    .eq('id', userId)
+    .single();
   return data;
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return {statusCode:200,headers:h,body:''};
+  const h = corsHeaders(event);
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: h, body: '' };
   try {
-    const { action, credits: setAmount, feature } = JSON.parse(event.body||'{}');
-    const token = event.headers.authorization?.replace('Bearer ','');
-    if (!token) return {statusCode:401,headers:h,body:JSON.stringify({error:'Unauthorised'})};
-    
-    const userId = await getUserId(token);
-    if (!userId) return {statusCode:401,headers:h,body:JSON.stringify({error:'Invalid token'})};
+    const { action } = JSON.parse(event.body || '{}');
+    const user = await requireUser(event);
+    const userId = user.id;
 
-    const profile = await getProfile(userId);
+    let profile = await getProfile(userId);
     const today = new Date().toDateString();
-    
-    // Daily reset: if last reset wasn't today, give 3 fresh credits
-    if (profile && profile.credit_date !== today && action !== 'set') {
-      await supabase.from('profiles').update({credits:3, credit_date:today}).eq('id',userId);
-      if (action === 'get') return {statusCode:200,headers:h,body:JSON.stringify({credits:3,is_pro:profile?.is_pro||false})};
-    }
-    
-    if (action === 'get') {
-      return {statusCode:200,headers:h,body:JSON.stringify({credits:profile?.credits??3,is_pro:profile?.is_pro||false})};
-    }
-    
-    if (action === 'set') {
-      const c = typeof setAmount === 'number' ? setAmount : 5;
-      await supabase.from('profiles').upsert({id:userId,credits:c,credit_date:today}).eq('id',userId);
-      return {statusCode:200,headers:h,body:JSON.stringify({credits:c})};
-    }
-    
-    if (action === 'use') {
-      const current = profile?.credits ?? 3;
-      if (current <= 0) return {statusCode:403,headers:h,body:JSON.stringify({error:'No credits remaining'})};
-      const newC = current - 1;
-      await supabase.from('profiles').update({credits:newC}).eq('id',userId);
-      return {statusCode:200,headers:h,body:JSON.stringify({credits:newC})};
+
+    // Daily reset: first interaction on a new day tops the free tier back up.
+    if (profile && !profile.is_pro && profile.credit_date !== today) {
+      await supabase.from('profiles').update({ credits: FREE_DAILY_CREDITS, credit_date: today }).eq('id', userId);
+      profile = { ...profile, credits: FREE_DAILY_CREDITS, credit_date: today };
     }
 
-    return {statusCode:400,headers:h,body:JSON.stringify({error:'Invalid action'})};
-  } catch(e) {
-    return {statusCode:500,headers:h,body:JSON.stringify({error:e.message})};
+    if (action === 'get') {
+      return {
+        statusCode: 200,
+        headers: h,
+        body: JSON.stringify({ credits: profile?.credits ?? FREE_DAILY_CREDITS, is_pro: profile?.is_pro || false }),
+      };
+    }
+
+    if (action === 'use') {
+      const result = await consumeCredit(userId);
+      if (!result.ok) {
+        return { statusCode: 402, headers: h, body: JSON.stringify({ error: 'No credits remaining', credits: 0 }) };
+      }
+      return { statusCode: 200, headers: h, body: JSON.stringify({ credits: result.credits, is_pro: result.is_pro }) };
+    }
+
+    return { statusCode: 400, headers: h, body: JSON.stringify({ error: 'Invalid action' }) };
+  } catch (e) {
+    if (e instanceof HttpError) return { statusCode: e.status, headers: h, body: JSON.stringify({ error: e.message }) };
+    return { statusCode: 500, headers: h, body: JSON.stringify({ error: e.message }) };
   }
 };

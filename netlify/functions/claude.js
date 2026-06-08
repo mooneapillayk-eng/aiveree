@@ -1,19 +1,21 @@
 // ─── AIVEREE CLAUDE SERVICE ───────────────────────────────────────────────────
-// Claude reasoning engine with memory injection and schema validation
-// Claude reasons — the backend stores
+// Claude reasoning engine with memory injection and schema validation.
+// Hardened: origin allowlist, optional auth (+ onboarding path), rate limiting,
+// request-size cap, upstream error propagation, and server-side credit gating.
 
-const { createClient } = require('@supabase/supabase-js');
+const {
+  CLAUDE_MODEL,
+  corsHeaders,
+  getOptionalUser,
+  consumeCredit,
+  rateLimit,
+  clientIp,
+  INTERNAL_HEADERS,
+  json,
+} = require('./lib/shared');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json"
-};
+// Reject obviously abusive payloads early.
+const MAX_MESSAGES_CHARS = 100000;
 
 // ─── SCHEMA VALIDATOR ─────────────────────────────────────────────────────────
 const SCHEMAS = {
@@ -26,7 +28,7 @@ const SCHEMAS = {
       if (!Array.isArray(d.milestones) || d.milestones.length === 0) return 'milestones must be non-empty array';
       if (!Array.isArray(d.quick_wins) || d.quick_wins.length === 0) return 'quick_wins must be non-empty array';
       return null;
-    }
+    },
   },
   task_plan: {
     required: ['intent', 'domain', 'required_actions'],
@@ -34,23 +36,20 @@ const SCHEMAS = {
       if (typeof d.intent !== 'string') return 'intent must be string';
       if (!Array.isArray(d.required_actions)) return 'required_actions must be array';
       return null;
-    }
-  }
+    },
+  },
 };
 
 function validateSchema(data, schemaName) {
   const schema = SCHEMAS[schemaName];
-  if (!schema) return { valid: true }; // No schema = pass through
-
+  if (!schema) return { valid: true };
   for (const field of schema.required) {
     if (data[field] === undefined || data[field] === null) {
       return { valid: false, error: `Missing required field: ${field}` };
     }
   }
-
   const validationError = schema.validate(data);
   if (validationError) return { valid: false, error: validationError };
-
   return { valid: true };
 }
 
@@ -67,8 +66,8 @@ async function getMemoryContext(userId, currentMessage) {
   try {
     const res = await fetch(`${process.env.URL}/.netlify/functions/memory`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'build_context', user_id: userId, current_message: currentMessage })
+      headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
+      body: JSON.stringify({ action: 'build_context', user_id: userId, current_message: currentMessage }),
     });
     if (!res.ok) return '';
     const data = await res.json();
@@ -84,98 +83,132 @@ async function fireEvent(eventType, userId, payload = {}, projectId = null) {
   try {
     await fetch(`${process.env.URL}/.netlify/functions/events`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'fire', event_type: eventType, user_id: userId, payload, project_id: projectId })
+      headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
+      body: JSON.stringify({ action: 'fire', event_type: eventType, user_id: userId, payload, project_id: projectId }),
     });
   } catch {}
 }
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
+  const CORS = corsHeaders(event);
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
   try {
+    const body = JSON.parse(event.body || '{}');
     const {
       messages,
       system,
       useSearch = false,
-      userId,
       projectId,
       schemaValidation,
       maxRetries = 2,
-      eventType
-    } = JSON.parse(event.body || "{}");
+      eventType,
+      mode,
+    } = body;
 
     if (!messages || !Array.isArray(messages)) {
-      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "messages array required" }) };
+      return json(400, CORS, { error: 'messages array required' });
     }
 
-    // Get memory context if we have a userId
+    // ── Access control ─────────────────────────────────────────────────────────
+    // Authenticated users go through the full path; unauthenticated callers are
+    // allowed ONLY for the pre-signup onboarding step, tightly rate-limited.
+    const user = await getOptionalUser(event);
+    const onboarding = mode === 'onboarding';
+    if (!user && !onboarding) {
+      return json(401, CORS, { error: 'Authentication required' });
+    }
+
+    // ── Request size cap ───────────────────────────────────────────────────────
+    if (JSON.stringify(messages).length > MAX_MESSAGES_CHARS) {
+      return json(413, CORS, { error: 'Request too large' });
+    }
+
+    // ── Rate limiting ──────────────────────────────────────────────────────────
+    if (user) {
+      const ok = await rateLimit(`claude:user:${user.id}`, 40, 60 * 1000);
+      if (!ok) return json(429, CORS, { error: 'Too many requests, please slow down' });
+    } else {
+      const ip = clientIp(event);
+      const ok = await rateLimit(`claude:onboard:${ip}`, 15, 24 * 60 * 60 * 1000);
+      if (!ok) return json(429, CORS, { error: 'Onboarding limit reached — please sign up to continue' });
+    }
+
+    // ── Credit gating (monetisation) ───────────────────────────────────────────
+    // Charge a credit for authenticated, user-initiated, billable actions.
+    // Internal/background generation passes billable:false; onboarding is free.
+    const billable = !!user && !onboarding && body.billable !== false;
+    if (billable) {
+      const credit = await consumeCredit(user.id);
+      if (!credit.ok) return json(402, CORS, { error: 'No credits remaining' });
+    }
+
+    const userId = user?.id || null;
+
+    // Memory context (authenticated users only).
     let memoryContext = '';
     if (userId) {
-      const lastUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+      const lastUserMsg = messages.filter((m) => m.role === 'user').slice(-1)[0]?.content || '';
       memoryContext = await getMemoryContext(userId, lastUserMsg);
     }
 
-    // Build system prompt with memory
     const fullSystem = memoryContext
       ? `${system || ''}\n\n─── AIVEREE MEMORY CONTEXT ───\n${memoryContext}\n─────────────────────────────`
       : (system || '');
 
-    // Tools
-    const tools = useSearch ? [{ type: "web_search_20250305", name: "web_search" }] : undefined;
+    const tools = useSearch ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined;
 
     let attempts = 0;
     let lastError = null;
     let result = null;
 
-    // Retry loop with schema validation
     while (attempts <= maxRetries) {
       attempts++;
       try {
-        const body = {
-          model: "claude-sonnet-4-20250514",
+        const reqBody = {
+          model: CLAUDE_MODEL,
           max_tokens: schemaValidation ? 2000 : 4000,
           system: fullSystem,
           messages,
         };
-        if (tools) body.tools = tools;
+        if (tools) reqBody.tools = tools;
 
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "x-api-key": process.env.ANTHROPIC_API_KEY,
-            "anthropic-version": "2023-06-01"
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
           },
-          body: JSON.stringify(body)
+          body: JSON.stringify(reqBody),
         });
 
         if (!res.ok) {
           const err = await res.text();
           lastError = `API error ${res.status}: ${err}`;
+          // Don't retry on upstream auth errors.
+          if (res.status === 401 || res.status === 403) {
+            return json(502, CORS, { error: 'Upstream auth error' });
+          }
           continue;
         }
 
         const data = await res.json();
-        const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+        const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
 
-        // Schema validation if requested
         if (schemaValidation) {
           try {
             const parsed = parseJSON(text);
             const validation = validateSchema(parsed, schemaValidation);
-
             if (!validation.valid) {
               lastError = `Schema validation failed: ${validation.error}`;
               if (attempts <= maxRetries) {
-                // Add repair instruction for retry
-                messages.push({ role: "assistant", content: text });
-                messages.push({ role: "user", content: `The response failed validation: ${validation.error}. Please fix and return valid JSON.` });
+                messages.push({ role: 'assistant', content: text });
+                messages.push({ role: 'user', content: `The response failed validation: ${validation.error}. Please fix and return valid JSON.` });
                 continue;
               }
             }
-
             result = { ...data, parsed };
           } catch (parseErr) {
             lastError = `JSON parse failed: ${parseErr.message}`;
@@ -194,18 +227,16 @@ exports.handler = async (event) => {
 
     if (!result) {
       console.error('All attempts failed:', lastError);
-      return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: lastError || 'All retry attempts failed' }) };
+      return json(502, CORS, { error: 'Upstream model error' });
     }
 
-    // Fire conversation event asynchronously
     if (userId && eventType) {
       fireEvent(eventType, userId, { message_count: messages.length }, projectId);
     }
 
     return { statusCode: 200, headers: CORS, body: JSON.stringify(result) };
-
   } catch (err) {
     console.error('Claude service error:', err);
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Claude service failed', detail: err.message }) };
+    return json(500, CORS, { error: 'Claude service failed', detail: err.message });
   }
 };

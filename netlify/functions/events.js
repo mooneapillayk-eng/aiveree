@@ -2,18 +2,7 @@
 // System backbone. Everything that happens is an event.
 // Actions: fire | query | get_user_activity | check_inactivity
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json"
-};
+const { supabase, corsHeaders, resolveUser, internalSecretOk, HttpError } = require('./lib/shared');
 
 // Valid event types — schema validation
 const VALID_EVENT_TYPES = new Set([
@@ -36,10 +25,19 @@ const VALID_EVENT_TYPES = new Set([
 ]);
 
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
   try {
     const { action, ...params } = JSON.parse(event.body || "{}");
+
+    // Authoritative user id: token (browser) or trusted internal call. Single-user
+    // actions are scoped to this id; cross-user fire_batch is internal-only.
+    const { userId } = await resolveUser(event, params);
+    if (action !== 'fire_batch') {
+      if (!userId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
+      params.user_id = userId;
+    }
 
     switch (action) {
 
@@ -69,8 +67,11 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers: CORS, body: JSON.stringify({ event: data }) };
       }
 
-      // Fire multiple events at once
+      // Fire multiple events at once — system operation, internal callers only
       case 'fire_batch': {
+        if (!internalSecretOk(event)) {
+          return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: "Forbidden" }) };
+        }
         const { events: eventList } = params;
         if (!Array.isArray(eventList) || eventList.length === 0) {
           return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "events array required" }) };
@@ -189,6 +190,9 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
     }
   } catch (err) {
+    if (err instanceof HttpError) {
+      return { statusCode: err.status, headers: CORS, body: JSON.stringify({ error: err.message }) };
+    }
     console.error('Events service error:', err);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Events service failed', detail: err.message }) };
   }

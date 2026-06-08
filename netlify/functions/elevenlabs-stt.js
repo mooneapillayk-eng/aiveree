@@ -1,11 +1,16 @@
 // ElevenLabs Scribe v2 speech-to-text proxy
+const { corsHeaders, getOptionalUser, rateLimit } = require('./lib/shared');
+
 exports.handler = async (event) => {
-  const CORS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
   try {
+    // Paid upstream — require a logged-in user and rate limit per user.
+    const user = await getOptionalUser(event);
+    if (!user) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: "Authentication required" }) };
+    if (!(await rateLimit(`stt:${user.id}`, 30, 60 * 1000))) {
+      return { statusCode: 429, headers: CORS, body: JSON.stringify({ error: "Too many requests" }) };
+    }
     const body = event.isBase64Encoded ? Buffer.from(event.body, "base64") : Buffer.from(event.body);
     const contentType = event.headers["content-type"] || "audio/webm";
     const formData = new FormData();

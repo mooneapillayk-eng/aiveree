@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createUserProfile, createGoal, createProject, initUserState, getPendingApprovals, supabase } from "./supabase.js";
+import { createUserProfile, createGoal, createProject, initUserState, getPendingApprovals, supabase,
+  signUpUser, signInUser, startOAuth, completeOAuthIfPresent, restoreSession, signOutUser, apiFetch } from "./supabase.js";
 
 // ─── BACKEND HELPERS ──────────────────────────────────────────────────────────
 async function fireEvent(eventType, userId, payload = {}, projectId = null) {
   if (!userId) return;
   try {
-    await fetch("/.netlify/functions/events", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "fire", event_type: eventType, user_id: userId, payload, project_id: projectId })
-    });
+    await apiFetch("/.netlify/functions/events", { action: "fire", event_type: eventType, user_id: userId, payload, project_id: projectId });
   } catch {}
 }
 
@@ -16,10 +14,7 @@ async function extractMemories(userId, conversation, projectId) {
   if (!userId || !conversation?.length) return;
   try {
     const convText = conversation.map(m => `${m.role === "user" ? "User" : "Aiveree"}: ${m.content}`).join("\n");
-    await fetch("/.netlify/functions/memory", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "extract_from_conversation", user_id: userId, conversation: convText, project_id: projectId })
-    });
+    await apiFetch("/.netlify/functions/memory", { action: "extract_from_conversation", user_id: userId, conversation: convText, project_id: projectId });
   } catch {}
 }
 
@@ -138,10 +133,7 @@ function useTTS(){
       // Stop current audio if priority (new message)
       if(priority&&audioRef.current){audioRef.current.pause();}
       const clean=text.replace(/\*\*/g,"").replace(/→/g,"").replace(/\n\n/g," ").trim().slice(0,600);
-      const res=await fetch("/.netlify/functions/elevenlabs-tts",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({text:clean})
-      });
+      const res=await apiFetch("/.netlify/functions/elevenlabs-tts",{text:clean});
       if(!res.ok)return;
       const{audio,mimeType}=await res.json();
       if(!audio)return;
@@ -491,20 +483,28 @@ function AuthScreen({onAuth,prefilledIntel,mobile}){
     if(!email||!password){setError("Please fill in all fields.");return;}
     if(mode==="signup"&&!name){setError("Please enter your name.");return;}
     setLoading(true);setError("");
-    await new Promise(r=>setTimeout(r,900));
-    const user={name:name||email.split("@")[0],email,id:Date.now()};
-    const intel={...prefilledIntel,name:user.name,onboarding_complete:true};
-    saveLocalIntel(intel);saveCredits(FREE_CREDITS);
-    onAuth(user,intel);setLoading(false);
+    try{
+      const data = mode==="signup"
+        ? await signUpUser({name,email,password})
+        : await signInUser({email,password});
+      const authUser = data.user;
+      if(!authUser?.id){
+        setError(mode==="signup"?"Check your email to confirm your account, then sign in.":"Could not sign in.");
+        setLoading(false);return;
+      }
+      const user={ id:authUser.id, email:authUser.email||email, name:(name||authUser.user_metadata?.name||email.split("@")[0]) };
+      const intel={...prefilledIntel,name:user.name,onboarding_complete:true};
+      saveLocalIntel(intel);saveCredits(FREE_CREDITS);
+      onAuth(user,intel);
+    }catch(err){
+      setError(err.message||"Authentication failed.");
+    }finally{ setLoading(false); }
   };
 
   const oauth=async(p)=>{
-    setLoading(true);
-    await new Promise(r=>setTimeout(r,700));
-    const user={name:`${p} User`,email:`user@${p.toLowerCase()}.com`,id:Date.now()};
-    const intel={...prefilledIntel,name:user.name,onboarding_complete:true};
-    saveLocalIntel(intel);saveCredits(FREE_CREDITS);
-    onAuth(user,intel);setLoading(false);
+    setLoading(true);setError("");
+    try{ await startOAuth(p); }
+    catch(err){ setError(err.message||"Could not start sign-in."); setLoading(false); }
   };
 
   return(
@@ -590,7 +590,7 @@ function Onboarding({selectedDomain,onComplete,mobile}){
     const next=[...msgs,{role:"user",content:text}];
     setMsgs(next);setInp("");setBusy(true);
     try{
-      const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT})});
+      const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT},{onboarding:true});
       const data=await res.json();
       let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Sorry, something went wrong.";
       if(reply.includes("[ONBOARDING_COMPLETE]")){
@@ -767,7 +767,8 @@ function CapabilityRunner({cap,intel,domainColor,onClose,onCreditUsed,credits}){
     try{
       const system=DOMAIN_PROMPT.replace("{DOMAIN}",getDomainLabel(intel.domain_id)).replace("{GOAL}",intel.goal||"");
       const userPrompt=`User goal: ${intel.goal||""}\n\n${cap.prompt}${input?`\n\nAdditional context provided: ${input}`:""}`;
-      const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:userPrompt}],system,useSearch:true})});
+      const res=await apiFetch("/.netlify/functions/claude",{messages:[{role:"user",content:userPrompt}],system,useSearch:true});
+      if(res.status===402){setOutput("You've used all your free tasks for now. They refresh daily.");saveCredits(0);onCreditUsed(0);setLoading(false);return;}
       const data=await res.json();
       const text=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n\n"):"";
       setOutput(text||"Something went wrong. Please try again.");
@@ -866,11 +867,11 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
     if(cached){try{setDash(JSON.parse(cached));return}catch{}}
     (async()=>{
       setDashLoading(true);
-      const uid=user?.id||user?.email;
+      const uid=user?.id;
       // First: try to load a remembered dashboard so structure stays stable
       if(uid){
         try{
-          const lr=await fetch("/.netlify/functions/workstreams",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load_dashboard",user_id:uid,goal:intel.goal})});
+          const lr=await apiFetch("/.netlify/functions/workstreams",{action:"load_dashboard",user_id:uid,goal:intel.goal});
           const ld=await lr.json();
           if(ld.dashboard){
             setDash(ld.dashboard);
@@ -935,12 +936,12 @@ Requirements:
 - next_best_action is ONE action, deeply relevant. This is the most important field.
 - Everything references what they ACTUALLY said. No generic filler. No hype. Calm operational tone throughout.`;
 
-        const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        const res=await apiFetch("/.netlify/functions/claude",{
           messages:[{role:"user",content:prompt}],
           system:"You build calm, adaptive operational workspaces for Aiveree. Return only valid JSON. The workspace must feel personally reorganised around the user's situation — not a template. Tone is composed, intelligent, operational. Never hype, never overwhelming. The Next Best Action is the centrepiece — make it one specific, behaviourally-relevant action. CRITICAL: suggested_capabilities must be 5 concrete, specific actions UNIQUE to their goal, not generic domain actions.",
-          userId:user?.id||user?.email,
-          useSearch:false
-        })});
+          useSearch:false,
+          billable:false
+        });
         const data=await res.json();
         let t=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"";
         t=t.replace(/```json|```/g,"").trim();
@@ -950,7 +951,7 @@ Requirements:
         setDash(p);sessionStorage.setItem(ck,JSON.stringify(p));
         // Remember this dashboard so its structure stays stable next session
         if(uid){
-          try{fetch("/.netlify/functions/workstreams",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save_dashboard",user_id:uid,goal:intel.goal,dashboard:p})});}catch{}
+          try{apiFetch("/.netlify/functions/workstreams",{action:"save_dashboard",user_id:uid,goal:intel.goal,dashboard:p});}catch{}
         }
       }catch{setDash({error:true});}
       setDashLoading(false);
@@ -963,14 +964,14 @@ Requirements:
   useEffect(()=>{
     if(!dash?.active_workstreams?.length||wsStartedRef.current)return;
     wsStartedRef.current=true;
-    const uid=user?.id||user?.email;
+    const uid=user?.id;
     const cacheKey=`ws_${domainId}_${(intel.goal||"").slice(0,20).replace(/\W/g,"_")}`;
 
     (async()=>{
       // 1. Try to load remembered work from the database first
       if(uid){
         try{
-          const lr=await fetch("/.netlify/functions/workstreams",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"load",user_id:uid,goal:intel.goal})});
+          const lr=await apiFetch("/.netlify/functions/workstreams",{action:"load",user_id:uid,goal:intel.goal});
           const ld=await lr.json();
           if(ld.workstreams?.length>0){
             const remembered={};
@@ -1004,12 +1005,12 @@ TASK: ${ws.title}
 WHAT IT INVOLVES: ${ws.detail}
 
 Do the actual work now. Produce a genuinely useful, specific deliverable — real findings, a real draft, a real analysis. Use specifics (names, numbers, concrete options) wherever possible. Format with short clear sections. This is real work the user will read and act on, not a description of what you would do. Keep it focused and high-value — around 200-350 words.`;
-          const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+          const res=await apiFetch("/.netlify/functions/claude",{
             messages:[{role:"user",content:execPrompt}],
             system:"You are a specialist executing real work for a user's goal. Produce concrete, specific, genuinely useful deliverables — never descriptions of what you would do. Use real specifics. Calm, professional, operational.",
-            userId:uid,
-            useSearch:needsResearch
-          })});
+            useSearch:needsResearch,
+            billable:false
+          });
           const data=await res.json();
           const txt=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"";
           results[i]={status:"complete",result:txt||"Completed."};
@@ -1021,10 +1022,10 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
         // 3. Remember this completed work in the database
         if(uid){
           try{
-            fetch("/.netlify/functions/workstreams",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+            apiFetch("/.netlify/functions/workstreams",{
               action:"save",user_id:uid,goal:intel.goal,task_index:i,
               title:ws.title,detail:ws.detail,status:"complete",result:results[i].result
-            })});
+            });
           }catch{}
         }
       }
@@ -1047,7 +1048,8 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
     try{
       const system=DOMAIN_PROMPT.replace("{DOMAIN}",dl).replace("{GOAL}",intel.goal||"")
         +`\n\nUser name: ${user?.name||""}. Available capabilities: ${(caps||[]).map(c=>c.label).join(", ")}.`;
-      const res=await fetch("/.netlify/functions/claude",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:next.map(m=>({role:m.role,content:m.content})),system,useSearch:true})});
+      const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system,useSearch:true});
+      if(res.status===402){setShowCreditGate(true);saveCredits(0);onCreditUsed(0);setChatBusy(false);return;}
       const data=await res.json();
       const reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Something went wrong.";
       setChatMsgs([...next,{role:"assistant",content:reply}]);
@@ -1386,7 +1388,21 @@ export default function App(){
   const globalAudioRef=useRef(null);
 
   useEffect(()=>{if(intel?.onboarding_complete&&user)setScreen("dashboard")},[]);
-  
+
+  // Restore an existing session (or complete an OAuth redirect) on load.
+  useEffect(()=>{(async()=>{
+    await completeOAuthIfPresent();
+    const restored=await restoreSession();
+    if(restored?.user?.id){
+      const u={ id:restored.user.id, email:restored.user.email, name:restored.profile?.name||restored.user.user_metadata?.name||restored.user.email?.split("@")[0] };
+      setUser(u);
+      const li=getLocalIntel();
+      if(li?.onboarding_complete){setIntel(li);setScreen("dashboard");}
+      // Sync credits from the server (authoritative).
+      try{ const cr=await apiFetch("/.netlify/functions/credits",{action:"get"}); const cd=await cr.json(); if(typeof cd.credits==="number"){saveCredits(cd.credits);setCredits(cd.credits);} }catch{}
+    }
+  })()},[]);
+
   // Stop all audio when screen changes to prevent overlap
   useEffect(()=>{
     if(globalAudioRef.current){globalAudioRef.current.pause();globalAudioRef.current.currentTime=0;}
@@ -1407,25 +1423,25 @@ export default function App(){
     setTimeout(async()=>{
       try {
         // 1. Create user profile
-        await createUserProfile(u.id||u.email, { name:u.name, email:u.email });
+        await createUserProfile(u.id, { name:u.name, email:u.email });
 
         // 2. Create goal
-        const goal = await createGoal(u.id||u.email, { goal:i.goal?.split(" | ")[0], domain_id:i.domain_id });
+        const goal = await createGoal(u.id, { goal:i.goal?.split(" | ")[0], domain_id:i.domain_id });
 
         // 3. Create project
-        const project = goal ? await createProject(u.id||u.email, goal.id, { goal:i.goal?.split(" | ")[0], domain_id:i.domain_id }) : null;
+        const project = goal ? await createProject(u.id, goal.id, { goal:i.goal?.split(" | ")[0], domain_id:i.domain_id }) : null;
 
         // 4. Initialise user state
-        await initUserState(u.id||u.email, i.domain_id);
+        await initUserState(u.id, i.domain_id);
 
         // 5. Extract memories from onboarding conversation
         if (i.conversation?.length) {
-          await extractMemories(u.id||u.email, i.conversation, project?.id);
+          await extractMemories(u.id, i.conversation, project?.id);
         }
 
         // 6. Fire sign-up and goal-created events
-        await fireEvent("user.signed_up", u.id||u.email, { domain: i.domain_id, goal_preview: i.goal?.slice(0,100) }, project?.id);
-        if (goal) await fireEvent("goal.created", u.id||u.email, { goal_id: goal.id, title: goal.title }, project?.id);
+        await fireEvent("user.signed_up", u.id, { domain: i.domain_id, goal_preview: i.goal?.slice(0,100) }, project?.id);
+        if (goal) await fireEvent("goal.created", u.id, { goal_id: goal.id, title: goal.title }, project?.id);
 
         // 7. Ask for WhatsApp number and voice/text preference
         const waResult = await requestPhoneNumber(u.name);
@@ -1434,14 +1450,11 @@ export default function App(){
             whatsapp_number: waResult.phone,
             preferred_channel: 'whatsapp',
             whatsapp_format: waResult.format
-          }).eq('id', u.id||u.email);
+          }).eq('id', u.id);
 
           // Send immediate welcome message in their preferred format
           const welcomeMsg = `Hi ${u.name||'there'}! Aiveree here. Your workspace is ready and my team is already working on your goal. I'll keep you updated here.`;
-          await fetch("/.netlify/functions/whatsapp", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "send", user_id: u.id||u.email, message: welcomeMsg, message_type: "welcome" })
-          }).catch(()=>{});
+          await apiFetch("/.netlify/functions/whatsapp", { action: "send", user_id: u.id, message: welcomeMsg, message_type: "welcome" }).catch(()=>{});
         }
 
       } catch(err) {

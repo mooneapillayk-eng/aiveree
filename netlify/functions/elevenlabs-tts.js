@@ -2,10 +2,7 @@
 // Converts text to speech using ElevenLabs Flash v2.5
 // Supports: base64 response (chat) | buffer storage (WhatsApp voice notes)
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const { corsHeaders, getOptionalUser, internalSecretOk, rateLimit } = require('./lib/shared');
 
 async function generateSpeech(text) {
   const clean = text
@@ -75,17 +72,33 @@ async function storeVoiceNote(audioBuffer, userId) {
 }
 
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: CORS, body: "" };
   }
 
   try {
-    const { text, mode = "chat", userId } = JSON.parse(event.body || "{}");
+    const { text, mode = "chat" } = JSON.parse(event.body || "{}");
+
+    // Auth: chat playback requires a logged-in user; whatsapp mode is internal.
+    const internal = internalSecretOk(event);
+    const user = internal ? null : await getOptionalUser(event);
+    if (!internal && !user) {
+      return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: "Authentication required" }) };
+    }
+    // userId for storage paths comes from the authenticated identity, not the body.
+    const userId = internal ? (JSON.parse(event.body || "{}").userId) : user.id;
+
+    // Rate limit this paid upstream per identity.
+    const rlKey = `tts:${userId || 'internal'}`;
+    if (!internal && !(await rateLimit(rlKey, 30, 60 * 1000))) {
+      return { statusCode: 429, headers: CORS, body: JSON.stringify({ error: "Too many requests" }) };
+    }
 
     if (!text) {
       return {
         statusCode: 400,
-        headers: { ...CORS, "Content-Type": "application/json" },
+        headers: CORS,
         body: JSON.stringify({ error: "text required" })
       };
     }

@@ -3,9 +3,17 @@
 // Scheduled: morning 8am, evening 6pm, weekly Sunday 9am
 // Also callable manually for immediate digest
 
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const CORS = { "Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Content-Type","Content-Type":"application/json" };
+const { supabase, corsHeaders, internalSecretOk, INTERNAL_HEADERS, CLAUDE_MODEL } = require('./lib/shared');
+
+// Background job. Netlify's scheduled trigger has no httpMethod; any public HTTP
+// call must carry the internal or cron secret.
+function jobAuthorised(event) {
+  if (!event.httpMethod) return true; // scheduled invocation
+  if (internalSecretOk(event)) return true;
+  const cron = process.env.CRON_SECRET;
+  const got = event.headers?.['x-cron-secret'];
+  return !!cron && got === cron;
+}
 
 async function generateDigest(userId, digestType, activitySummary, memoryContext) {
   const typeDescriptions = {
@@ -75,7 +83,7 @@ Generate JSON:
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: CLAUDE_MODEL,
       max_tokens: 1000,
       system: "You are Aiveree generating personalised digests. Return ONLY valid JSON. Be specific to the user's actual situation. No generic advice.",
       messages: [{ role: "user", content: prompts[digestType] }]
@@ -91,7 +99,9 @@ Generate JSON:
 }
 
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode:200, headers:CORS, body:"" };
+  if (!jobAuthorised(event)) return { statusCode:403, headers:CORS, body:JSON.stringify({ error:"Forbidden" }) };
 
   try {
     const body = JSON.parse(event.body || "{}");
@@ -120,7 +130,7 @@ exports.handler = async (event) => {
         // Get activity summary
         const actRes = await fetch(`${process.env.URL}/.netlify/functions/events`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
           body: JSON.stringify({ action: 'get_activity_summary', user_id: user.id, since_hours: digestType === 'weekly' ? 168 : 24 })
         });
         const activitySummary = actRes.ok ? await actRes.json() : {};
@@ -128,7 +138,7 @@ exports.handler = async (event) => {
         // Get memory context
         const memRes = await fetch(`${process.env.URL}/.netlify/functions/memory`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
           body: JSON.stringify({ action: 'build_context', user_id: user.id, current_message: `Generate ${digestType} digest` })
         });
         const memData = memRes.ok ? await memRes.json() : {};
@@ -151,7 +161,7 @@ exports.handler = async (event) => {
         // Fire event
         await fetch(`${process.env.URL}/.netlify/functions/events`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...INTERNAL_HEADERS },
           body: JSON.stringify({ action: 'fire', event_type: `digest.${digestType}_sent`, user_id: user.id, payload: { digest_id: digest?.id } })
         });
 

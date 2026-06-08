@@ -3,18 +3,7 @@
 // Actions: save | load
 // A user logs in next week and sees the work completed last week.
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Content-Type": "application/json"
-};
+const { supabase, corsHeaders, resolveUser, HttpError } = require('./lib/shared');
 
 // A stable key for a user's goal so we can group their workstreams
 function goalKey(goal) {
@@ -22,10 +11,16 @@ function goalKey(goal) {
 }
 
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
   try {
     const { action, ...p } = JSON.parse(event.body || "{}");
+
+    // Authoritative user id from the bearer token (or trusted internal call).
+    const { userId } = await resolveUser(event, p);
+    if (!userId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
+    p.user_id = userId;
 
     switch (action) {
 
@@ -102,6 +97,7 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "unknown action" }) };
     }
   } catch (e) {
+    if (e instanceof HttpError) return { statusCode: e.status, headers: CORS, body: JSON.stringify({ error: e.message }) };
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: e.message }) };
   }
 };

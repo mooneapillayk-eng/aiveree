@@ -2,39 +2,12 @@
 // Unified memory read/write with embeddings from day 1
 // Actions: write | read | search | context | update_importance
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Content-Type": "application/json"
-};
+const { supabase, CLAUDE_MODEL, corsHeaders, resolveUser, HttpError } = require('./lib/shared');
 
 // ─── GENERATE EMBEDDING ───────────────────────────────────────────────────────
+// OpenAI text-embedding-3-small. Returns null on failure (callers handle null).
 async function generateEmbedding(text) {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 100,
-        system: "Return only a JSON object with key 'embedding' containing a 1536-dimensional vector array representing the semantic meaning of the input text. No explanation.",
-        messages: [{ role: "user", content: `Generate embedding for: ${text.slice(0, 500)}` }]
-      })
-    });
-
-    // Use OpenAI embeddings instead - more reliable for vectors
-    // Fall back to a deterministic hash if unavailable
     const embeddingRes = await fetch("https://api.openai.com/v1/embeddings", {
       method: "POST",
       headers: {
@@ -110,7 +83,7 @@ Example:
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: CLAUDE_MODEL,
         max_tokens: 1000,
         messages: [{ role: "user", content: prompt }]
       })
@@ -220,10 +193,17 @@ async function buildClaudeContext(userId, currentMessage) {
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
   try {
     const { action, ...params } = JSON.parse(event.body || "{}");
+
+    // Authoritative user id: from the bearer token (browser) or, for internal
+    // service-to-service calls, from the trusted body. Never trust a raw body id.
+    const { userId } = await resolveUser(event, params);
+    if (!userId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "user_id required" }) };
+    params.user_id = userId;
 
     switch (action) {
 
@@ -329,9 +309,21 @@ exports.handler = async (event) => {
         const { memory_id } = params;
         if (!memory_id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "memory_id required" }) };
 
+        // Read-modify-write: supabase-js v2 has no .raw() for in-place SQL expressions.
+        // Also scopes the update to the acting user so one user can't reinforce another's memory.
+        const { data: existing, error: readErr } = await supabase
+          .from('memories')
+          .select('reinforcement_count, importance_score, user_id')
+          .eq('id', memory_id)
+          .single();
+        if (readErr) throw readErr;
+        if (!existing || existing.user_id !== userId) {
+          return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: "memory not found" }) };
+        }
+
         const { error } = await supabase.from('memories').update({
-          reinforcement_count: supabase.raw('reinforcement_count + 1'),
-          importance_score: supabase.raw('LEAST(1.0, importance_score + 0.05)'),
+          reinforcement_count: (existing.reinforcement_count || 0) + 1,
+          importance_score: Math.min(1.0, (existing.importance_score || 0) + 0.05),
           last_accessed_at: new Date().toISOString()
         }).eq('id', memory_id);
 
@@ -343,6 +335,9 @@ exports.handler = async (event) => {
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
     }
   } catch (err) {
+    if (err instanceof HttpError) {
+      return { statusCode: err.status, headers: CORS, body: JSON.stringify({ error: err.message }) };
+    }
     console.error('Memory service error:', err);
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Memory service failed', detail: err.message }) };
   }

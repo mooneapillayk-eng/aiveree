@@ -2,16 +2,21 @@
 // Human approval queue. Aiveree prepares, user approves, then it executes.
 // Actions: create | get_pending | approve | reject | expire
 
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const CORS = { "Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Content-Type","Content-Type":"application/json" };
+const { supabase, corsHeaders, resolveUser, HttpError } = require('./lib/shared');
 
 const VALID_TYPES = ['email','message','application','schedule','payment','post','outreach','document','other'];
 
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode:200, headers:CORS, body:"" };
   try {
     const { action, ...params } = JSON.parse(event.body || "{}");
+
+    // Authoritative user id from token (or trusted internal call).
+    const { userId } = await resolveUser(event, params);
+    if (!userId) return { statusCode:400, headers:CORS, body:JSON.stringify({ error:"user_id required" }) };
+    params.user_id = userId;
+
     switch (action) {
 
       case 'create': {
@@ -63,6 +68,7 @@ exports.handler = async (event) => {
         return { statusCode:400, headers:CORS, body:JSON.stringify({ error:`Unknown action: ${action}` }) };
     }
   } catch (err) {
+    if (err instanceof HttpError) return { statusCode: err.status, headers: CORS, body: JSON.stringify({ error: err.message }) };
     console.error('Approvals error:', err);
     return { statusCode:500, headers:CORS, body:JSON.stringify({ error:'Approvals service failed' }) };
   }

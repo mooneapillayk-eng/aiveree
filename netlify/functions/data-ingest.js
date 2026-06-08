@@ -3,18 +3,7 @@
 // Run weekly via netlify.toml schedule
 // Sources: ONS, Land Registry, GOV.UK, Companies House bulk data
 
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
-  "Content-Type": "application/json"
-};
+const { supabase, corsHeaders } = require('./lib/shared');
 
 // ─── DATA SOURCES ─────────────────────────────────────────────────────────────
 const SOURCES = {
@@ -214,12 +203,14 @@ async function logRun(results) {
 
 // ─── MAIN HANDLER ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
+  const CORS = corsHeaders(event);
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: CORS, body: "" };
 
-  // Allow manual trigger via POST with admin key
-  if (event.httpMethod === "POST") {
+  // Scheduled invocations have no httpMethod. Any manual HTTP trigger (GET or POST)
+  // must present the admin key — otherwise this expensive pipeline is publicly runnable.
+  if (event.httpMethod) {
     const body = JSON.parse(event.body || "{}");
-    if (body.admin_key !== process.env.ADMIN_KEY) {
+    if (!process.env.ADMIN_KEY || body.admin_key !== process.env.ADMIN_KEY) {
       return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: "Unauthorised" }) };
     }
   }

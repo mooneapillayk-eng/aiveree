@@ -12,6 +12,94 @@ export const supabase = isConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : { from: () => ({ upsert: async () => ({ error: null }), insert: () => ({ select: () => ({ single: async () => ({ data: null, error: null }) }) }), select: () => mockChain(), update: () => ({ eq: async () => ({ error: null }) }) }), rpc: async () => ({ data: null, error: null }), auth: { getUser: async () => ({ data: { user: null } }) } }
 
+// ─── AUTH + AUTHENTICATED FETCH ───────────────────────────────────────────────
+// Real Supabase-backed auth via netlify/functions/auth.js. The returned session's
+// access_token is attached as a Bearer header on every privileged function call,
+// so the backend derives the user id from the token (never from the request body).
+const SESSION_KEY = 'aiveree_session_v1'
+
+export function getStoredSession() {
+  try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null') } catch { return null }
+}
+function storeSession(session) {
+  try {
+    if (session?.access_token) localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    else localStorage.removeItem(SESSION_KEY)
+  } catch {}
+}
+export function getToken() {
+  return getStoredSession()?.access_token || null
+}
+export function signOutUser() { storeSession(null) }
+
+async function authCall(action, payload) {
+  const res = await fetch('/.netlify/functions/auth', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...payload })
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Authentication failed')
+  return data
+}
+
+export async function signUpUser({ name, email, password }) {
+  const data = await authCall('signup', { name, email, password })
+  storeSession(data.session)
+  return data // { user, session }
+}
+export async function signInUser({ email, password }) {
+  const data = await authCall('signin', { email, password })
+  storeSession(data.session)
+  return data // { user, session, profile }
+}
+
+// OAuth: get the provider URL and redirect; the callback is handled on load.
+export async function startOAuth(provider) {
+  const map = { Google: 'google', Apple: 'apple', Microsoft: 'azure' }
+  const { url } = await authCall('oauth', { provider: map[provider] || provider, redirectTo: window.location.origin + '/?auth=callback' })
+  if (url) window.location.href = url
+}
+export async function completeOAuthIfPresent() {
+  const params = new URLSearchParams(window.location.search)
+  const code = params.get('code')
+  if (!code) return null
+  try {
+    const data = await authCall('oauth_callback', { code })
+    storeSession(data.session)
+    window.history.replaceState({}, '', window.location.pathname)
+    return data
+  } catch {
+    return null
+  }
+}
+
+// Restore an existing session on load (validates the token against the backend).
+export async function restoreSession() {
+  const token = getToken()
+  if (!token) return null
+  try {
+    const res = await fetch('/.netlify/functions/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'me' })
+    })
+    if (!res.ok) { signOutUser(); return null }
+    return await res.json() // { user, profile }
+  } catch {
+    return null
+  }
+}
+
+// POST to a Netlify function with the bearer token attached (when present).
+// Pass { onboarding: true } for the single pre-signup call that is allowed anonymously.
+export async function apiFetch(path, body, { onboarding = false } = {}) {
+  const token = getToken()
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const finalBody = onboarding ? { ...body, mode: 'onboarding' } : body
+  return fetch(path, { method: 'POST', headers, body: JSON.stringify(finalBody) })
+}
+
 export async function createUserProfile(userId, data) {
   if (!isConfigured || !userId) return null
   try {

@@ -1,6 +1,8 @@
 // Dedicated agent function — higher token limits, web search always on
 // Handles all team member tasks separately from the onboarding chat
 
+const { CLAUDE_MODEL, corsHeaders, requireUser, consumeCredit, rateLimit, HttpError } = require('./lib/shared');
+
 const AGENT_PROMPTS = {
   // CARA'S TEAM
   Tariq: (intel) => `You are Tariq, a specialist job finder. Search the web RIGHT NOW for real, current UK job listings that match this person's goal.
@@ -653,15 +655,19 @@ One capstone project that demonstrates all the key skills — specific to their 
 };
 
 exports.handler = async (event) => {
-  const h = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json"
-  };
+  const h = corsHeaders(event);
 
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: h, body: "" };
 
   try {
+    // Agent tasks are expensive (web search always on) — require auth, rate limit, and charge a credit.
+    const user = await requireUser(event);
+    if (!(await rateLimit(`agent:user:${user.id}`, 30, 60 * 1000))) {
+      return { statusCode: 429, headers: h, body: JSON.stringify({ error: "Too many requests" }) };
+    }
+    const credit = await consumeCredit(user.id);
+    if (!credit.ok) return { statusCode: 402, headers: h, body: JSON.stringify({ error: "No credits remaining" }) };
+
     const { member_name, intel, task_input, use_custom_prompt, custom_system, messages } = JSON.parse(event.body || "{}");
 
     if (!member_name) return { statusCode: 400, headers: h, body: JSON.stringify({ error: "member_name required" }) };
@@ -672,7 +678,7 @@ exports.handler = async (event) => {
       // New single-entity Aiveree model — use the custom system prompt from App.jsx
       systemPrompt = custom_system || "You are Aiveree. Be warm, direct, and specific to the user's goal.";
       const body = {
-        model: "claude-sonnet-4-20250514",
+        model: CLAUDE_MODEL,
         max_tokens: 4000,
         system: systemPrompt,
         messages: messages || [{ role: "user", content: task_input || "" }],
@@ -694,7 +700,7 @@ exports.handler = async (event) => {
     prompt = promptFn(intel || {}, task_input || "");
 
     const body = {
-      model: "claude-sonnet-4-20250514",
+      model: CLAUDE_MODEL,
       max_tokens: 4000,
       system: `You are ${member_name}, a specialist agent on a team helping this user achieve their goal. Always be specific to their actual situation. Lead with opportunities and positive outcomes — never open with risks or warnings. Use web search to find real, current information. Format your output clearly with **bold headers**. Be thorough and practical.`,
       messages: [{ role: "user", content: prompt }],
@@ -720,6 +726,7 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: h, body: JSON.stringify({ output: text || "Something went wrong. Please try again." }) };
 
   } catch (err) {
+    if (err instanceof HttpError) return { statusCode: err.status, headers: h, body: JSON.stringify({ error: err.message }) };
     console.error("Agent error:", err);
     return { statusCode: 500, headers: h, body: JSON.stringify({ error: "Agent task failed. Please try again." }) };
   }
