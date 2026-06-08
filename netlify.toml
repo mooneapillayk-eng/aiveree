@@ -4,8 +4,23 @@
   functions="netlify/functions"
 [functions]
   node_bundler="esbuild"
-[functions."rank-tools"]
-  schedule="0 0 * * *"
+  included_files=["netlify/functions/**"]
+[functions."data-ingest"]
+  schedule="0 6 * * 1"
+  timeout=30
+[functions."digest"]
+  schedule="0 8 * * *"
+  timeout=30
+[functions."agent"]
+  timeout=26
+[functions."memory"]
+  timeout=20
+[functions."events"]
+  timeout=10
+[functions."approvals"]
+  timeout=10
+[functions."elevenlabs-tts"]
+  timeout=15
 [[redirects]]
   from="/*"
   to="/index.html"

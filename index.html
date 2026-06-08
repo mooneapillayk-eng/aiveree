@@ -3,59 +3,12 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Aiveree — Find Your AI Tool</title>
+  <title>Aiveree — Bring the ambition. We'll build the team.</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'"/>
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"/></noscript>
-  <style>
-    body{margin:0;background:#e8e6ed;font-family:'Plus Jakarta Sans',sans-serif;}
-    #skeleton{position:fixed;inset:0;background:#e8e6ed;z-index:9999;transition:opacity 0.3s ease;}
-    #skeleton.hidden{opacity:0;pointer-events:none;}
-    .sk-nav{height:54px;background:rgba(7,6,15,0.95);display:flex;align-items:center;padding:0 20px;gap:12px;}
-    .sk-logo{width:30px;height:30px;border-radius:8px;background:#7c3aed;flex-shrink:0;}
-    .sk-bar{height:14px;border-radius:7px;}
-    .sk-hero{padding:60px 40px 40px;text-align:center;}
-    .sk-h1{height:80px;width:380px;margin:0 auto 16px;border-radius:12px;}
-    .sk-h2{height:80px;width:280px;margin:0 auto 24px;border-radius:12px;}
-    .sk-sub{height:18px;width:460px;margin:0 auto 8px;border-radius:9px;}
-    .sk-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:0 40px 40px;}
-    .sk-card{height:260px;border-radius:16px;}
-    @keyframes shimmer{0%{background-position:-600px 0}100%{background-position:600px 0}}
-    .sk-h1,.sk-h2,.sk-sub,.sk-card,.sk-bar{background:linear-gradient(90deg,#dddadf 25%,#e8e6ed 50%,#dddadf 75%);background-size:600px 100%;animation:shimmer 1.4s infinite linear;}
-  </style>
+  <style>body{margin:0;background:#FAFAFA;}</style>
 </head>
 <body>
-  <div id="skeleton">
-    <div class="sk-nav">
-      <div class="sk-logo"></div>
-      <div class="sk-bar" style="width:80px"></div>
-      <div class="sk-bar" style="width:60px;margin-left:20px"></div>
-      <div class="sk-bar" style="width:70px"></div>
-      <div class="sk-bar" style="width:55px"></div>
-      <div class="sk-bar" style="width:80px"></div>
-      <div class="sk-bar" style="width:65px"></div>
-      <div class="sk-bar" style="width:50px"></div>
-      <div class="sk-bar" style="flex:1"></div>
-      <div class="sk-bar" style="width:80px"></div>
-      <div class="sk-bar" style="width:100px;background:#7c3aed44"></div>
-    </div>
-    <div class="sk-hero">
-      <div class="sk-h1"></div>
-      <div class="sk-h2"></div>
-      <div class="sk-sub"></div>
-      <div class="sk-sub" style="width:320px;margin:8px auto 0"></div>
-    </div>
-    <div class="sk-cards">
-      <div class="sk-card"></div><div class="sk-card"></div>
-      <div class="sk-card"></div><div class="sk-card"></div>
-      <div class="sk-card"></div><div class="sk-card"></div>
-      <div class="sk-card"></div><div class="sk-card"></div>
-    </div>
-  </div>
   <div id="root"></div>
-  <script>window.__hideSkeleton=function(){var s=document.getElementById('skeleton');if(s){s.classList.add('hidden');setTimeout(function(){s.remove();},350);}};</script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
