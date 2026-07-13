@@ -251,42 +251,47 @@ function Homepage({onStart,mobile}){
     {q:"The WhatsApp check-in made me come back when I would have quietly given up.",n:"Freelancer, London"},
   ];
 
+  // ── ElevenLabs-style tokens: warm-white eggshell canvas, warm near-black ink,
+  // taupe surfaces, light-300 editorial display. Purple lives ONLY in the product
+  // preview visual — never as UI chrome. (Waldenburg is proprietary; Inter stands
+  // in for both display and body, matching ElevenLabs' own body face.)
+  const C={canvas:"#f5f5f5",soft:"#fafafa",card:"#fff",strong:"#f0efed",ink:"#0c0a09",inkWarm:"#292524",body:"#4e4e4e",muted:"#777169",mutedSoft:"#a8a29e",line:"#e7e5e4",lineStrong:"#d6d3d1"};
+  const F="'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+  const secPad=mobile?"64px 20px":"96px 52px";
+
   return(
-    <div style={{background:"#fafaf8",minHeight:"100vh",fontFamily:"'Syne',Inter,sans-serif"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&display=swap');`}</style>
+    <div style={{background:C.canvas,minHeight:"100vh",fontFamily:F,color:C.ink}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');`}</style>
 
       {/* ── HERO ── */}
-      <div style={{maxWidth:1100,margin:"0 auto",padding:mobile?"96px 20px 0":"136px 52px 0"}}>
-        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?36:64,alignItems:"center"}}>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:mobile?"92px 20px 0":"128px 52px 0"}}>
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?40:72,alignItems:"center"}}>
 
           {/* Left — copy */}
           <div>
-            <div style={{display:"inline-flex",alignItems:"center",gap:7,background:"#f4f4f2",border:"1px solid #e7e7e4",borderRadius:20,padding:"5px 13px",marginBottom:26}}>
-              <div style={{width:5,height:5,borderRadius:3,background:"#5b21b6"}}/>
-              <span style={{fontFamily:"'Poppins',sans-serif",fontSize:10,fontWeight:600,color:"#666",letterSpacing:1,textTransform:"uppercase"}}>Your AI executive assistant</span>
+            <div style={{display:"inline-flex",alignItems:"center",gap:7,background:C.strong,borderRadius:9999,padding:"5px 12px",marginBottom:28}}>
+              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>Your AI executive assistant</span>
             </div>
-            <h1 style={{fontFamily:"'Poppins',sans-serif",fontSize:mobile?"clamp(32px,8vw,46px)":"clamp(40px,4.5vw,58px)",fontWeight:700,lineHeight:1.08,letterSpacing:"0px",color:"#0a0a0a",marginBottom:20}}>
-              Bring the<br/>ambition.<br/>
-              <span style={{WebkitTextFillColor:"transparent",WebkitTextStroke:"2px #5b21b6",fontWeight:700}}>We'll build</span><br/>
-              <span style={{color:"#5b21b6"}}>the team.</span>
+            <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,64px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.9px",color:C.ink,marginBottom:22}}>
+              Bring the ambition.<br/>We'll build the team.
             </h1>
-            <p style={{fontSize:mobile?15:16,color:"#555",lineHeight:1.85,fontWeight:400,marginBottom:14,fontFamily:"Inter,sans-serif",maxWidth:430}}>
+            <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:460,letterSpacing:0.16}}>
               Tell Aiveree your goal. She briefs her specialist team and they get to work — on your career, your business, whatever's in the way.
             </p>
-            <p style={{fontSize:13,color:"#999",lineHeight:1.75,fontFamily:"Inter,sans-serif",marginBottom:32,maxWidth:400}}>
+            <p style={{fontSize:15,color:C.muted,lineHeight:1.55,fontFamily:F,marginBottom:32,maxWidth:430}}>
               She doesn't wait for a prompt. She knows what you're building, and she reaches out when you go quiet.
             </p>
-            <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-              <button onClick={()=>onStart(null)} style={{background:"#0a0a0a",border:"none",borderRadius:9999,padding:mobile?"12px 24px":"13px 30px",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:14,fontFamily:"'Poppins',sans-serif",letterSpacing:0.3}}>Tell Aiveree your goal →</button>
-              <button onClick={()=>document.getElementById("video")?.scrollIntoView({behavior:"smooth"})} style={{background:"transparent",border:"1px solid #ddd",borderRadius:9999,padding:mobile?"12px 24px":"13px 30px",color:"#444",fontWeight:400,cursor:"pointer",fontSize:14,fontFamily:"Inter,sans-serif"}}>Watch how it works</button>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Tell Aiveree your goal</button>
+              <button onClick={()=>document.getElementById("video")?.scrollIntoView({behavior:"smooth"})} style={{background:"transparent",border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:C.ink,fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Watch how it works</button>
             </div>
-            <p style={{fontSize:10,color:"#ccc",marginTop:12,fontFamily:"Inter,sans-serif"}}>Free to start · No credit card · 5 tasks included</p>
+            <p style={{fontSize:13,color:C.mutedSoft,marginTop:16,fontFamily:F}}>Free to start · No credit card · 5 tasks included</p>
           </div>
 
           {/* Right — product preview */}
           {!mobile&&(
             <div style={{position:"relative"}}>
-              <div style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:20,padding:20,boxShadow:"0 24px 80px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+              <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:24,padding:20,boxShadow:"0 24px 80px rgba(0,0,0,0.08)",overflow:"hidden"}}>
                 {/* Mini dashboard header */}
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingBottom:12,borderBottom:"1px solid #f5f5f5"}}>
                   <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700,fontFamily:"'Poppins',sans-serif"}}>Ai</div>
@@ -335,25 +340,25 @@ function Homepage({onStart,mobile}){
       </div>
 
       {/* ── SOCIAL PROOF ── */}
-      <div style={{maxWidth:1000,margin:"0 auto",padding:mobile?"56px 20px 0":"112px 52px 0"}}>
-        <p style={{textAlign:"center",fontSize:10,color:"#bbb",fontFamily:"'Poppins',sans-serif",letterSpacing:2,textTransform:"uppercase",marginBottom:40,fontWeight:600}}>What people are saying</p>
-        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?32:48}}>
+      <div style={{maxWidth:1000,margin:"0 auto",padding:mobile?"64px 20px 0":"104px 52px 0"}}>
+        <p style={{textAlign:"center",fontSize:12,color:C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:44,fontWeight:600}}>What people are saying</p>
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?36:48}}>
           {PROOF.map((p,i)=>(
             <div key={i}>
-              <p style={{fontFamily:"Inter,sans-serif",fontSize:15,color:"#2a2a2a",lineHeight:1.7,marginBottom:14,fontWeight:400}}>"{p.q}"</p>
-              <p style={{fontFamily:"Inter,sans-serif",fontSize:12,color:"#999",fontWeight:400}}>— {p.n}</p>
+              <p style={{fontFamily:F,fontSize:mobile?17:19,color:C.ink,lineHeight:1.5,marginBottom:16,fontWeight:300,letterSpacing:-0.2}}>"{p.q}"</p>
+              <p style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>{p.n}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* ── VIDEO SECTION ── */}
-      <div id="video" style={{maxWidth:1100,margin:"0 auto",padding:mobile?"64px 20px":"104px 52px"}}>
-        <div style={{textAlign:"center",marginBottom:36}}>
-          <h2 style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:mobile?24:36,color:"#0a0a0a",marginBottom:8,letterSpacing:-0.5}}>See Aiveree in action</h2>
-          <p style={{fontFamily:"Inter,sans-serif",fontSize:14,color:"#888",fontWeight:300,maxWidth:420,margin:"0 auto"}}>60 seconds. Your goal in. Results out. A team that keeps working.</p>
+      <div id="video" style={{maxWidth:1100,margin:"0 auto",padding:secPad}}>
+        <div style={{textAlign:"center",marginBottom:40}}>
+          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:40,color:C.ink,marginBottom:10,letterSpacing:mobile?"-0.5px":"-1px"}}>See Aiveree in action</h2>
+          <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400,maxWidth:420,margin:"0 auto"}}>60 seconds. Your goal in. Results out. A team that keeps working.</p>
         </div>
-        <div style={{background:"#0a0a0a",borderRadius:20,overflow:"hidden",aspectRatio:"16/9",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.10)"}}>
+        <div style={{background:C.ink,borderRadius:24,overflow:"hidden",aspectRatio:"16/9",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.10)"}}>
           {/* Placeholder — replace src with YouTube/Vimeo embed URL when video is ready */}
           <div style={{textAlign:"center",padding:40}}>
             <div style={{width:64,height:64,borderRadius:32,background:"rgba(255,255,255,0.1)",border:"2px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",cursor:"pointer",transition:"all .2s"}}
@@ -368,33 +373,33 @@ function Homepage({onStart,mobile}){
           <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 30% 50%, rgba(91,33,182,0.3) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(167,139,250,0.15) 0%, transparent 60%)",pointerEvents:"none"}}/>
         </div>
         <div style={{textAlign:"center",marginTop:16}}>
-          <button onClick={()=>onStart(null)} style={{background:"#0a0a0a",border:"none",borderRadius:9999,padding:"11px 28px",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:13,fontFamily:"'Poppins',sans-serif"}}>Start for free →</button>
+          <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:"12px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Start for free</button>
         </div>
       </div>
 
       {/* ── WHAT ARE YOU WORKING TOWARD ── */}
-      <div style={{padding:mobile?"64px 20px":"104px 52px"}}>
+      <div style={{padding:secPad}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:44}}>
-            <h2 style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:mobile?24:32,color:"#0a0a0a",marginBottom:10,letterSpacing:-0.3}}>What are you working toward?</h2>
-            <p style={{fontFamily:"Inter,sans-serif",fontSize:14,color:"#999",fontWeight:300}}>Tell Aiveree and she'll build a team around it.</p>
+          <div style={{textAlign:"center",marginBottom:48}}>
+            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>What are you working toward?</h2>
+            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>Tell Aiveree and she'll build a team around it.</p>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:14}}>
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
             {live.map(d=>(
               <button key={d.id} onClick={()=>onStart(d.id)}
-                style={{background:"#fff",border:"1px solid #ececec",borderRadius:14,padding:mobile?"16px 14px":"24px 22px",cursor:"pointer",textAlign:"left",fontFamily:"Inter,sans-serif",transition:"border-color .15s ease"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor="#0a0a0a";}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor="#ececec";}}>
-                <div style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:mobile?13:14,color:"#0a0a0a",marginBottom:7}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:12,color:"#8a8a8a",lineHeight:1.6,fontFamily:"Inter,sans-serif"}}>{d.desc}</div>
+                style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",cursor:"pointer",textAlign:"left",fontFamily:F,transition:"border-color .15s ease, background .15s ease"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.lineStrong;e.currentTarget.style.background=C.soft;}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.background=C.card;}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.ink,marginBottom:8}}>{d.label}</div>
+                <div style={{fontWeight:400,fontSize:mobile?13:15,color:C.muted,lineHeight:1.5,fontFamily:F}}>{d.desc}</div>
               </button>
             ))}
           </div>
-          <div style={{marginTop:mobile?10:14,display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:14}}>
+          <div style={{marginTop:mobile?10:16,display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
             {coming.map(d=>(
-              <div key={d.id} style={{background:"transparent",border:"1px dashed #e2e2e2",borderRadius:14,padding:mobile?"16px 14px":"24px 22px",textAlign:"left"}}>
-                <div style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:mobile?13:14,color:"#b0b0b0",marginBottom:7}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:11,color:"#c8c8c8",fontFamily:"Inter,sans-serif"}}>Coming soon</div>
+              <div key={d.id} style={{background:"transparent",border:`1px dashed ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",textAlign:"left"}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.mutedSoft,marginBottom:8}}>{d.label}</div>
+                <div style={{fontWeight:400,fontSize:13,color:C.mutedSoft,fontFamily:F}}>Coming soon</div>
               </div>
             ))}
           </div>
@@ -402,11 +407,11 @@ function Homepage({onStart,mobile}){
       </div>
 
       {/* ── HOW IT WORKS ── */}
-      <div id="how" style={{background:"#f7f7f5",padding:mobile?"64px 20px":"104px 52px"}}>
+      <div id="how" style={{background:C.strong,padding:secPad}}>
         <div style={{maxWidth:1100,margin:"0 auto"}}>
           <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:mobile?24:32,color:"#0a0a0a",marginBottom:10,letterSpacing:-0.3}}>How Aiveree works</h2>
-            <p style={{fontFamily:"Inter,sans-serif",fontSize:14,color:"#888",fontWeight:300}}>She's not a chatbot. She has a team.</p>
+            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>How Aiveree works</h2>
+            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>She's not a chatbot. She has a team.</p>
           </div>
           <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?16:24}}>
             {[
@@ -414,10 +419,10 @@ function Homepage({onStart,mobile}){
               {n:"02",t:"She briefs her team",d:"Aiveree configures a specialist team around your exact situation. She briefs them, manages them, and holds them accountable. You do nothing."},
               {n:"03",t:"Results come to you",d:"Jobs found. Plans built. Markets researched. She reaches out via WhatsApp when something needs your attention. Real work. Done."},
             ].map((s,i)=>(
-              <div key={i} style={{background:"#fff",border:"1px solid #ececec",borderRadius:16,padding:mobile?"24px":"32px 30px",position:"relative"}}>
-                <div style={{fontFamily:"'Poppins',sans-serif",fontWeight:800,fontSize:48,color:"#ededed",lineHeight:1,marginBottom:18,letterSpacing:-2}}>{s.n}</div>
-                <h3 style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:15,color:"#0a0a0a",marginBottom:8}}>{s.t}</h3>
-                <p style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:13,color:"#777",lineHeight:1.75,margin:0}}>{s.d}</p>
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"24px":"32px 30px",position:"relative"}}>
+                <div style={{fontFamily:F,fontWeight:300,fontSize:40,color:C.mutedSoft,lineHeight:1,marginBottom:20,letterSpacing:-1}}>{s.n}</div>
+                <h3 style={{fontFamily:F,fontWeight:500,fontSize:18,color:C.ink,marginBottom:8}}>{s.t}</h3>
+                <p style={{fontFamily:F,fontWeight:400,fontSize:15,color:C.body,lineHeight:1.55,margin:0}}>{s.d}</p>
               </div>
             ))}
           </div>
@@ -425,12 +430,12 @@ function Homepage({onStart,mobile}){
       </div>
 
       {/* ── FOOTER ── */}
-      <div style={{borderTop:"1px solid #efefef",padding:mobile?"20px":"20px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:1100,margin:"0 auto",flexWrap:"wrap",gap:8}}>
+      <div style={{borderTop:`1px solid ${C.line}`,padding:mobile?"24px 20px":"28px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:1100,margin:"0 auto",flexWrap:"wrap",gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <div style={{width:24,height:24,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:10,color:"#fff",fontFamily:"'Poppins',sans-serif"}}>Ai</div>
-          <span style={{fontFamily:"'Poppins',sans-serif",fontSize:12,color:"#999",fontWeight:500}}>Aiveree</span>
+          <div style={{width:24,height:24,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:10,color:"#fff",fontFamily:F}}>Ai</div>
+          <span style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>Aiveree</span>
         </div>
-        <span style={{fontFamily:"Inter,sans-serif",fontSize:11,color:"#ccc",fontWeight:300}}>© 2026 Aiveree · For career builders and entrepreneurs</span>
+        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · For career builders and entrepreneurs</span>
       </div>
     </div>
   );
