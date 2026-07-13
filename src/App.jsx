@@ -273,7 +273,7 @@ function Homepage({onStart,mobile}){
               <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>An AI team for founders</span>
             </div>
             <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,64px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.9px",color:C.ink,marginBottom:22}}>
-              Bring the ambition.<br/>We'll build the team.
+              Bring the idea.<br/>We'll build the business.
             </h1>
             <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:460,letterSpacing:0.16}}>
               Tell Aiveree your goal. She briefs her specialist team and they get to work — getting your business off the ground, landing customers, whatever's in the way.
@@ -534,9 +534,10 @@ function Onboarding({selectedDomain,onComplete,mobile}){
   const{speak,muted,toggleMute}=useTTS();
 
   const OPTS=[[
-    {emoji:"💼",text:"I want a better job or a career change"},
     {emoji:"🚀",text:"I want to start a business or side hustle"},
+    {emoji:"📈",text:"I want to grow a business I've already started"},
     {emoji:"🎬",text:"I want to build a YouTube channel or brand"},
+    {emoji:"💼",text:"I want a better job or a career change"},
     {emoji:"🏠",text:"I have a housing or tenant issue"},
     {emoji:"💰",text:"I need to sort my finances"},
     {emoji:"💻",text:"I want to break into tech"},
