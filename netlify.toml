@@ -13,8 +13,10 @@
   timeout=30
 [functions."agent"]
   timeout=26
-[functions."memory"]
-  timeout=20
+# NOTE: no per-function block for the `memory` function — `memory` is a reserved
+# key in Netlify's [functions] schema (it sets RAM), so [functions."memory"]
+# fails config parsing. The memory function uses the default timeout; its
+# build_context path is fast and callers degrade gracefully if it runs long.
 [functions."events"]
   timeout=10
 [functions."approvals"]
