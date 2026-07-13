@@ -31,10 +31,10 @@ async function requestPhoneNumber(userName) {
 
 // ─── DOMAIN WORKSPACES ────────────────────────────────────────────────────────
 const DOMAINS = [
-  { id:"career",    label:"Career growth",        emoji:"💼", desc:"Get a better role, negotiate more, or change direction completely.", color:"#7c3aed", live:true },
   { id:"business",  label:"Start a business",     emoji:"🚀", desc:"Turn your idea into a real plan with research, financials, and legal setup.", color:"#059669", live:true },
   { id:"grow",      label:"Grow my business",     emoji:"📈", desc:"More customers, better margins, sharper positioning.", color:"#0891b2", live:true },
   { id:"side",      label:"Side hustle",          emoji:"⚡", desc:"Build income alongside your job without burning out.", color:"#d97706", live:true },
+  { id:"career",    label:"Career growth",        emoji:"💼", desc:"Get a better role, negotiate more, or change direction completely.", color:"#7c3aed", live:true },
   { id:"housing",   label:"Housing issue",        emoji:"🏠", desc:"Tenant rights, disputes, documents — fully on your side.", color:"#dc2626", live:false },
   { id:"finance",   label:"Sort my finances",     emoji:"💰", desc:"Benefits, budgets, debt, and tax — in plain English.", color:"#ea580c", live:false },
   { id:"health",    label:"Health navigation",    emoji:"🏥", desc:"Understand the NHS, know your rights, get the right support.", color:"#16a34a", live:false },
@@ -246,9 +246,9 @@ function Homepage({onStart,mobile}){
   const coming=DOMAINS.filter(d=>!d.live);
 
   const PROOF=[
-    {q:"She found me 11 job matches overnight without me asking. I woke up to results.",n:"Career changer, Leeds"},
-    {q:"Had a business plan draft waiting before I'd even had my coffee. Genuinely different.",n:"First-time founder, Manchester"},
-    {q:"The WhatsApp check-in made me come back when I would have quietly given up.",n:"Freelancer, London"},
+    {q:"Had a full business plan and competitor breakdown waiting before I'd even finished my coffee.",n:"First-time founder, Manchester"},
+    {q:"She built me a warm outreach list overnight — I woke up to my first ten customers to contact.",n:"Solo founder, Bristol"},
+    {q:"The WhatsApp nudge got me back to my launch when I'd quietly let it stall.",n:"Side-hustler, London"},
   ];
 
   // ── ElevenLabs-style tokens: warm-white eggshell canvas, warm near-black ink,
@@ -270,13 +270,13 @@ function Homepage({onStart,mobile}){
           {/* Left — copy */}
           <div>
             <div style={{display:"inline-flex",alignItems:"center",gap:7,background:C.strong,borderRadius:9999,padding:"5px 12px",marginBottom:28}}>
-              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>Your AI executive assistant</span>
+              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>An AI team for founders</span>
             </div>
             <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,64px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.9px",color:C.ink,marginBottom:22}}>
               Bring the ambition.<br/>We'll build the team.
             </h1>
             <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:460,letterSpacing:0.16}}>
-              Tell Aiveree your goal. She briefs her specialist team and they get to work — on your career, your business, whatever's in the way.
+              Tell Aiveree your goal. She briefs her specialist team and they get to work — getting your business off the ground, landing customers, whatever's in the way.
             </p>
             <p style={{fontSize:15,color:C.muted,lineHeight:1.55,fontFamily:F,marginBottom:32,maxWidth:430}}>
               She doesn't wait for a prompt. She knows what you're building, and she reaches out when you go quiet.
@@ -305,14 +305,14 @@ function Homepage({onStart,mobile}){
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
                   <div style={{width:24,height:24,borderRadius:6,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>Ai</div>
                   <div style={{background:"#f7f7f7",borderRadius:"12px 12px 12px 2px",padding:"10px 12px",fontSize:12,color:"#333",lineHeight:1.65,fontFamily:"Inter,sans-serif",maxWidth:260}}>
-                    Morning. I've had my team working since you signed up. <strong style={{color:"#000"}}>11 job matches found</strong>, your business plan is drafted, and your market research is ready. Want me to walk you through it?
+                    Morning. My team's been building since you signed up. <strong style={{color:"#000"}}>Your business plan is drafted</strong>, 3 competitors mapped, and your launch checklist is ready. Want me to walk you through it?
                   </div>
                 </div>
                 {/* Task cards */}
                 {[
-                  {icon:"🔍",label:"Job search",status:"Complete",color:"#22c55e",note:"11 matches found overnight"},
-                  {icon:"📋",label:"Business plan",status:"Ready for review",color:"#5b21b6",note:"Tap to read"},
-                  {icon:"📊",label:"Market research",status:"In progress",color:"#f59e0b",note:"3 competitors mapped"},
+                  {icon:"📋",label:"Business plan",status:"Ready for review",color:"#5b21b6",note:"Financials + strategy drafted"},
+                  {icon:"📊",label:"Market research",status:"Complete",color:"#22c55e",note:"3 competitors mapped overnight"},
+                  {icon:"🚀",label:"Launch checklist",status:"In progress",color:"#f59e0b",note:"Registration + branding next"},
                 ].map((t,i)=>(
                   <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#fafafa",borderRadius:9,marginBottom:6,border:"1px solid #f0f0f0"}}>
                     <span style={{fontSize:14}}>{t.icon}</span>
@@ -328,7 +328,7 @@ function Homepage({onStart,mobile}){
                   <span style={{fontSize:12}}>💬</span>
                   <div>
                     <div style={{fontFamily:"Inter,sans-serif",fontSize:9,color:"#16a34a",fontWeight:600,marginBottom:2}}>WhatsApp · Just now</div>
-                    <div style={{fontFamily:"Inter,sans-serif",fontSize:10,color:"#555",lineHeight:1.5}}>"I noticed you haven't been back in 3 days. Your team found something worth seeing."</div>
+                    <div style={{fontFamily:"Inter,sans-serif",fontSize:10,color:"#555",lineHeight:1.5}}>"A competitor just changed their pricing — I've drafted how you respond. Worth a look when you're free."</div>
                   </div>
                 </div>
               </div>
@@ -417,7 +417,7 @@ function Homepage({onStart,mobile}){
             {[
               {n:"01",t:"Tell Aiveree your goal",d:"Have a quick conversation. Tell us what you're building, where you're headed, or what's in your way. No forms. Just talk."},
               {n:"02",t:"She briefs her team",d:"Aiveree configures a specialist team around your exact situation. She briefs them, manages them, and holds them accountable. You do nothing."},
-              {n:"03",t:"Results come to you",d:"Jobs found. Plans built. Markets researched. She reaches out via WhatsApp when something needs your attention. Real work. Done."},
+              {n:"03",t:"Results come to you",d:"Business plans built. Markets mapped. First customers found. She reaches out via WhatsApp when something needs your attention. Real work. Done."},
             ].map((s,i)=>(
               <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"24px":"32px 30px",position:"relative"}}>
                 <div style={{fontFamily:F,fontWeight:300,fontSize:40,color:C.mutedSoft,lineHeight:1,marginBottom:20,letterSpacing:-1}}>{s.n}</div>
@@ -435,7 +435,7 @@ function Homepage({onStart,mobile}){
           <div style={{width:24,height:24,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:10,color:"#fff",fontFamily:F}}>Ai</div>
           <span style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>Aiveree</span>
         </div>
-        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · For career builders and entrepreneurs</span>
+        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · For founders and entrepreneurs</span>
       </div>
     </div>
   );
