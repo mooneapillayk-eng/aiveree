@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createUserProfile, createGoal, createProject, initUserState, getPendingApprovals, supabase,
-  signUpUser, signInUser, startOAuth, completeOAuthIfPresent, restoreSession, signOutUser, apiFetch } from "./supabase.js";
+  signUpUser, signInUser, startOAuth, completeOAuthIfPresent, restoreSession, signOutUser, apiFetch,
+  listMemories, editMemory, forgetMemory, memoryTimeline,
+  listProjects, createProjectRecord, updateProjectRecord, deleteProjectRecord } from "./supabase.js";
 
 // ─── BACKEND HELPERS ──────────────────────────────────────────────────────────
 async function fireEvent(eventType, userId, payload = {}, projectId = null) {
@@ -1443,6 +1445,155 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
+// ─── MEMORY CENTRE ────────────────────────────────────────────────────────────
+// The real, wired "what Aiveree remembers" surface: view/edit/forget memories,
+// a chronological timeline, and first-class projects. Everything here hits the
+// live memory/projects functions — no illustrative placeholders.
+function MemoryCentre({mobile}){
+  const [tab,setTab]=useState("memory");
+  const [mem,setMem]=useState(null);
+  const [tl,setTl]=useState(null);
+  const [projects,setProjects]=useState(null);
+  const [editing,setEditing]=useState(null);
+  const [draft,setDraft]=useState("");
+  const [np,setNp]=useState({name:"",description:""});
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{
+    if(tab==="memory"&&mem===null) listMemories().then(setMem);
+    if(tab==="timeline"&&tl===null) memoryTimeline().then(setTl);
+    if(tab==="projects"&&projects===null) listProjects().then(setProjects);
+  },[tab]);// eslint-disable-line
+
+  const fmtDate=(s)=>{try{return new Date(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});}catch{return"";}};
+  const monthLabel=(k)=>{const[y,m]=(k||"").split("-");return new Date(Number(y),Number(m)-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});};
+
+  const saveEdit=async(m)=>{const v=draft.trim();if(!v){setEditing(null);return;}setBusy(true);const upd=await editMemory(m.id,{content:v});if(upd)setMem(mem.map(x=>x.id===m.id?{...x,...upd}:x));setEditing(null);setBusy(false);};
+  const forget=async(m)=>{if(!window.confirm("Forget this memory? Aiveree will no longer use it."))return;setBusy(true);const ok=await forgetMemory(m.id);if(ok)setMem(mem.filter(x=>x.id!==m.id));setBusy(false);};
+  const addProject=async()=>{const n=np.name.trim();if(!n||busy)return;setBusy(true);const p=await createProjectRecord(n,np.description);if(p)setProjects([p,...(projects||[])]);setNp({name:"",description:""});setBusy(false);};
+  const setStatus=async(p,status)=>{const upd=await updateProjectRecord(p.id,{status});if(upd)setProjects(projects.map(x=>x.id===p.id?upd:x));};
+  const delProject=async(p)=>{if(!window.confirm(`Delete "${p.name}"? This can't be undone.`))return;const ok=await deleteProjectRecord(p.id);if(ok)setProjects(projects.filter(x=>x.id!==p.id));};
+
+  const TABS=[["memory","Memory"],["timeline","Timeline"],["projects","Projects"]];
+  const card={background:"#fff",border:"1px solid #e8e8e8",borderRadius:12,padding:mobile?14:"16px 18px"};
+  const btn={background:"#000",border:"none",borderRadius:9999,padding:"8px 16px",fontSize:12,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"};
+  const ghost={background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"6px 13px",fontSize:12,color:"#333",cursor:"pointer",fontFamily:"Inter,sans-serif"};
+  const empty=(icon,title,sub)=>(
+    <div style={{background:"#fff",border:"1.5px dashed #e8e8e8",borderRadius:16,padding:"44px 24px",textAlign:"center"}}>
+      <div style={{fontSize:30,marginBottom:11}}>{icon}</div>
+      <div style={{fontWeight:400,fontSize:15,color:"#000",marginBottom:6,fontFamily:"Inter,sans-serif"}}>{title}</div>
+      <div style={{color:"#bbb",fontSize:13,fontWeight:300,fontFamily:"Inter,sans-serif"}}>{sub}</div>
+    </div>
+  );
+  const loading=<div style={{color:"#bbb",fontSize:13,fontWeight:300,fontFamily:"Inter,sans-serif",padding:"20px 2px"}}>Loading…</div>;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+      <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"22px 14px 80px":"36px 28px 80px"}}>
+        <div style={{marginBottom:18}}>
+          <h2 style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:mobile?20:26,letterSpacing:-0.3,color:"#000",marginBottom:4}}>What Aiveree remembers</h2>
+          <p style={{fontSize:12,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif"}}>Your context is yours. See it, edit it, or forget it — nothing here is a black box.</p>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:6,marginBottom:20,borderBottom:"1px solid #efefef"}}>
+          {TABS.map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{background:"none",border:"none",borderBottom:tab===id?"2px solid #000":"2px solid transparent",color:tab===id?"#000":"#999",fontSize:13,fontWeight:tab===id?500:300,cursor:"pointer",padding:"8px 10px",marginBottom:-1,fontFamily:"Inter,sans-serif"}}>{label}</button>
+          ))}
+        </div>
+
+        {/* MEMORY */}
+        {tab==="memory"&&(mem===null?loading:mem.length===0?empty("🧠","Nothing remembered yet","As you talk to Aiveree, the things that matter show up here."):(
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {mem.map(m=>(
+              <div key={m.id} style={card}>
+                {editing===m.id?(
+                  <div>
+                    <textarea value={draft} onChange={e=>setDraft(e.target.value)} rows={3} style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"vertical",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",gap:8,marginTop:9}}>
+                      <button onClick={()=>saveEdit(m)} disabled={busy} style={{...btn,opacity:busy?0.6:1}}>Save</button>
+                      <button onClick={()=>setEditing(null)} style={ghost}>Cancel</button>
+                    </div>
+                  </div>
+                ):(
+                  <div>
+                    <p style={{fontSize:mobile?13:14,color:"#111",lineHeight:1.55,fontWeight:400,fontFamily:"Inter,sans-serif",margin:0,marginBottom:9}}>{m.content}</p>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      {m.memory_type&&<span style={{fontSize:10,fontWeight:600,letterSpacing:0.5,textTransform:"uppercase",color:"#999",background:"#f5f5f5",borderRadius:9999,padding:"2px 8px",fontFamily:"Inter,sans-serif"}}>{m.memory_type}</span>}
+                      <span style={{fontSize:11,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif"}}>{m.source||"conversation"} · {fmtDate(m.created_at)}</span>
+                      <div style={{marginLeft:"auto",display:"flex",gap:7}}>
+                        <button onClick={()=>{setEditing(m.id);setDraft(m.content);}} style={{background:"none",border:"none",color:"#555",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Edit</button>
+                        <button onClick={()=>forget(m)} style={{background:"none",border:"none",color:"#c1440e",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Forget</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* TIMELINE */}
+        {tab==="timeline"&&(tl===null?loading:tl.length===0?empty("🗓️","Your timeline is empty","Come back once Aiveree has a few dated memories to group."):(
+          <div style={{position:"relative",paddingLeft:mobile?18:22}}>
+            <div style={{position:"absolute",left:mobile?4:6,top:6,bottom:6,width:1,background:"#e8e8e8"}}/>
+            {tl.map(g=>(
+              <div key={g.month} style={{marginBottom:22}}>
+                <div style={{position:"relative",marginBottom:12}}>
+                  <div style={{position:"absolute",left:mobile?-17:-21,top:3,width:9,height:9,borderRadius:9999,background:"#fff",border:"2px solid #d6d3d1"}}/>
+                  <div style={{fontFamily:"Inter,sans-serif",fontWeight:600,fontSize:12,letterSpacing:0.5,textTransform:"uppercase",color:"#999"}}>{monthLabel(g.month)}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {g.items.map(m=>(
+                    <div key={m.id} style={card}>
+                      <p style={{fontSize:13,color:"#111",lineHeight:1.5,fontWeight:400,fontFamily:"Inter,sans-serif",margin:0}}>{m.summary||m.content}</p>
+                      <div style={{fontSize:11,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:5}}>{fmtDate(m.created_at)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* PROJECTS */}
+        {tab==="projects"&&(
+          <div>
+            <div style={{...card,marginBottom:16}}>
+              <div style={{fontWeight:500,fontSize:13,color:"#000",marginBottom:10,fontFamily:"Inter,sans-serif"}}>New project</div>
+              <input value={np.name} onChange={e=>setNp({...np,name:e.target.value})} placeholder="Project name (e.g. Seed round)" style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,boxSizing:"border-box",marginBottom:8}}/>
+              <input value={np.description} onChange={e=>setNp({...np,description:e.target.value})} placeholder="What's this project about? (optional)" onKeyDown={e=>e.key==="Enter"&&addProject()} style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,boxSizing:"border-box",marginBottom:10}}/>
+              <button onClick={addProject} disabled={busy||!np.name.trim()} style={{...btn,opacity:(busy||!np.name.trim())?0.5:1}}>Add project</button>
+            </div>
+            {projects===null?loading:projects.length===0?empty("📂","No projects yet","Group the ongoing threads of your work — a raise, a launch, a hire."):(
+              <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                {projects.map(p=>(
+                  <div key={p.id} style={{...card,display:"flex",gap:12,alignItems:"flex-start"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:500,fontSize:14,color:"#000",fontFamily:"Inter,sans-serif",marginBottom:p.description?3:0}}>{p.name}</div>
+                      {p.description&&<div style={{fontSize:12,color:"#888",fontWeight:300,lineHeight:1.5,fontFamily:"Inter,sans-serif"}}>{p.description}</div>}
+                      <div style={{fontSize:11,color:"#ccc",fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:5}}>Created {fmtDate(p.created_at)}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:7}}>
+                      <select value={p.status||"active"} onChange={e=>setStatus(p,e.target.value)} style={{background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9999,padding:"4px 10px",fontSize:11,color:"#555",fontFamily:"Inter,sans-serif",cursor:"pointer",outline:"none"}}>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                        <option value="done">Done</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                      <button onClick={()=>delProject(p)} style={{background:"none",border:"none",color:"#c1440e",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Projects({projects,onSelectProject,onNewProject,mobile}){
   return(
     <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
@@ -1607,6 +1758,7 @@ export default function App(){
               <nav style={{flex:1,display:"flex",alignItems:"center",marginLeft:28}}>
                 <button onClick={()=>setScreen("dashboard")} style={{background:"none",border:"none",color:screen==="dashboard"?"#000":"#999",fontSize:13,fontWeight:screen==="dashboard"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Dashboard</button>
                 <button onClick={()=>setScreen("projects")} style={{background:"none",border:"none",color:screen==="projects"?"#000":"#999",fontSize:13,fontWeight:screen==="projects"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Workspaces</button>
+                <button onClick={()=>setScreen("memory")} style={{background:"none",border:"none",color:screen==="memory"?"#000":"#999",fontSize:13,fontWeight:screen==="memory"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Memory</button>
               </nav>
             )}
             <div style={{display:"flex",alignItems:"center",gap:7,marginLeft:"auto",flexShrink:0}}>
@@ -1628,6 +1780,7 @@ export default function App(){
       {screen==="auth"&&<AuthScreen onAuth={handleAuth} prefilledIntel={pendingIntel||intel} mobile={mobile}/>}
       {screen==="dashboard"&&intel&&user&&<CommandCentre intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
+      {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
   );
 }

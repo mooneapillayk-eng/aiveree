@@ -191,3 +191,47 @@ export async function updateMomentum(userId) {
     return data
   } catch { return null }
 }
+
+// ─── MEMORY MANAGEMENT (visible + controllable) ───────────────────────────────
+// Backs the in-app "what Aiveree remembers" view: list, edit, forget, timeline.
+// The user id is derived server-side from the bearer token, never passed here.
+async function memoryJSON(action, body = {}) {
+  try {
+    const res = await apiFetch('/.netlify/functions/memory', { action, ...body })
+    if (!res.ok) return null
+    return await res.json()
+  } catch { return null }
+}
+export async function listMemories(limit = 100) {
+  const d = await memoryJSON('list', { limit }); return d?.memories || []
+}
+export async function editMemory(memory_id, { content, summary } = {}) {
+  const d = await memoryJSON('update', { memory_id, content, summary }); return d?.memory || null
+}
+export async function forgetMemory(memory_id) {
+  const d = await memoryJSON('delete', { memory_id }); return !!d?.deleted
+}
+export async function memoryTimeline() {
+  const d = await memoryJSON('timeline', {}); return d?.timeline || []
+}
+
+// ─── PROJECTS ─────────────────────────────────────────────────────────────────
+async function projectsJSON(action, body = {}) {
+  try {
+    const res = await apiFetch('/.netlify/functions/projects', { action, ...body })
+    if (!res.ok) return null
+    return await res.json()
+  } catch { return null }
+}
+export async function listProjects() {
+  const d = await projectsJSON('list'); return d?.projects || []
+}
+export async function createProjectRecord(name, description) {
+  const d = await projectsJSON('create', { name, description }); return d?.project || null
+}
+export async function updateProjectRecord(project_id, patch = {}) {
+  const d = await projectsJSON('update', { project_id, ...patch }); return d?.project || null
+}
+export async function deleteProjectRecord(project_id) {
+  const d = await projectsJSON('delete', { project_id }); return !!d?.deleted
+}

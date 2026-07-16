@@ -331,6 +331,83 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers: CORS, body: JSON.stringify({ reinforced: true }) };
       }
 
+      // List a user's memories, newest first — backs the in-app memory manager.
+      case 'list': {
+        const { limit = 100 } = params;
+        const { data, error } = await supabase
+          .from('memories')
+          .select('id, content, summary, memory_type, source, importance_score, created_at, project_id')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        return { statusCode: 200, headers: CORS, body: JSON.stringify({ memories: data || [] }) };
+      }
+
+      // Edit a memory's content/summary. Re-embeds when the content changes.
+      // Scoped to the acting user so no one can edit another user's memory.
+      case 'update': {
+        const { memory_id, content, summary } = params;
+        if (!memory_id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "memory_id required" }) };
+        if (content === undefined && summary === undefined) {
+          return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "nothing to update" }) };
+        }
+        const { data: existing, error: readErr } = await supabase
+          .from('memories').select('user_id').eq('id', memory_id).single();
+        if (readErr) throw readErr;
+        if (!existing || existing.user_id !== userId) {
+          return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: "memory not found" }) };
+        }
+        const patch = {};
+        if (typeof content === 'string' && content.trim()) {
+          patch.content = content.trim();
+          patch.summary = summary !== undefined ? summary : content.trim().slice(0, 60);
+          patch.embedding = await generateEmbedding(content.trim());
+        } else if (summary !== undefined) {
+          patch.summary = summary;
+        }
+        const { data, error } = await supabase.from('memories').update(patch).eq('id', memory_id).select().single();
+        if (error) throw error;
+        return { statusCode: 200, headers: CORS, body: JSON.stringify({ memory: data }) };
+      }
+
+      // Forget (delete) a memory — scoped to the acting user.
+      case 'delete': {
+        const { memory_id } = params;
+        if (!memory_id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "memory_id required" }) };
+        const { data: existing, error: readErr } = await supabase
+          .from('memories').select('user_id').eq('id', memory_id).single();
+        if (readErr) throw readErr;
+        if (!existing || existing.user_id !== userId) {
+          return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: "memory not found" }) };
+        }
+        const { error } = await supabase.from('memories').delete().eq('id', memory_id);
+        if (error) throw error;
+        return { statusCode: 200, headers: CORS, body: JSON.stringify({ deleted: true }) };
+      }
+
+      // Chronological timeline — memories grouped by year-month, newest first.
+      case 'timeline': {
+        const { limit = 300 } = params;
+        const { data, error } = await supabase
+          .from('memories')
+          .select('id, content, summary, memory_type, created_at, project_id')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) throw error;
+        const groups = [];
+        const index = {};
+        for (const m of data || []) {
+          const d = new Date(m.created_at);
+          if (isNaN(d.getTime())) continue;
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          if (!(key in index)) { index[key] = groups.length; groups.push({ month: key, items: [] }); }
+          groups[index[key]].items.push(m);
+        }
+        return { statusCode: 200, headers: CORS, body: JSON.stringify({ timeline: groups, count: (data || []).length }) };
+      }
+
       default:
         return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: `Unknown action: ${action}` }) };
     }
