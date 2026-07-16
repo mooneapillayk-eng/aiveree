@@ -241,23 +241,66 @@ function getDomainColor(id){return DOMAINS.find(d=>d.id===id)?.color||"#5b21b6";
 function getDomainEmoji(id){return DOMAINS.find(d=>d.id===id)?.emoji||"✨";}
 
 // ─── HOMEPAGE ─────────────────────────────────────────────────────────────────
+// Positioning: "AI Chief of Staff" — a persistent personal intelligence layer —
+// with founder-leaning examples throughout. Visual system: ElevenLabs-style warm
+// white + light-300 Inter display; purple lives only inside the product visuals.
+// Sections marked VISION are backend-dependent (Projects, Timeline) and are
+// framed honestly as roadmap; the real editable features live inside the app.
 function Homepage({onStart,mobile}){
   const live=DOMAINS.filter(d=>d.live);
   const coming=DOMAINS.filter(d=>!d.live);
 
-  const PROOF=[
-    {q:"Had a full business plan and competitor breakdown waiting before I'd even finished my coffee.",n:"First-time founder, Manchester"},
-    {q:"She built me a warm outreach list overnight — I woke up to my first ten customers to contact.",n:"Solo founder, Bristol"},
-    {q:"The WhatsApp nudge got me back to my launch when I'd quietly let it stall.",n:"Side-hustler, London"},
-  ];
-
-  // ── ElevenLabs-style tokens: warm-white eggshell canvas, warm near-black ink,
-  // taupe surfaces, light-300 editorial display. Purple lives ONLY in the product
-  // preview visual — never as UI chrome. (Waldenburg is proprietary; Inter stands
-  // in for both display and body, matching ElevenLabs' own body face.)
   const C={canvas:"#f5f5f5",soft:"#fafafa",card:"#fff",strong:"#f0efed",ink:"#0c0a09",inkWarm:"#292524",body:"#4e4e4e",muted:"#777169",mutedSoft:"#a8a29e",line:"#e7e5e4",lineStrong:"#d6d3d1"};
   const F="'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
-  const secPad=mobile?"64px 20px":"96px 52px";
+  const secPad=mobile?"64px 20px":"104px 52px";
+  const scrollTo=(id)=>document.getElementById(id)?.scrollIntoView({behavior:"smooth"});
+
+  // Centred section heading block.
+  const Head=({eyebrow,title,sub,dark})=>(
+    <div style={{textAlign:"center",maxWidth:660,margin:"0 auto",marginBottom:mobile?36:56}}>
+      {eyebrow&&<p style={{fontSize:12,color:dark?"rgba(255,255,255,0.55)":C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:16,fontWeight:600}}>{eyebrow}</p>}
+      <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?27:40,color:dark?"#fff":C.ink,letterSpacing:mobile?"-0.6px":"-1.2px",lineHeight:1.1,margin:0}}>{title}</h2>
+      {sub&&<p style={{fontFamily:F,fontSize:mobile?15:17,color:dark?"rgba(255,255,255,0.65)":C.body,fontWeight:400,lineHeight:1.6,marginTop:16}}>{sub}</p>}
+    </div>
+  );
+  // Small uppercase status tag (e.g. "Example", "In development").
+  const Tag=({children,tone})=>(
+    <span style={{fontFamily:F,fontSize:10,fontWeight:600,letterSpacing:0.8,textTransform:"uppercase",color:tone==="dark"?"rgba(255,255,255,0.6)":C.muted,background:tone==="dark"?"rgba(255,255,255,0.1)":C.strong,borderRadius:9999,padding:"3px 9px"}}>{children}</span>
+  );
+
+  const COMPARE=[
+    ["You manage the context","A persistent personal context layer"],
+    ["Conversations are isolated","Relevant memory across conversations"],
+    ["You repeatedly explain yourself","It understands your ongoing projects"],
+    ["Mostly reactive","Increasingly proactive"],
+    ["Generic answers","Personalised reasoning"],
+    ["You decide what to do next","It helps move ideas into action"],
+  ];
+  const LOOP=[
+    ["Talk","Talk to Aiveree through voice, text, or WhatsApp."],
+    ["Understand","She identifies the relevant context, goals, and intent."],
+    ["Remember","What matters becomes part of your personal context."],
+    ["Act","She turns it into plans, tasks, and next steps."],
+    ["Learn","Every interaction makes the next one more useful."],
+  ];
+  const USES=[
+    ["Make better decisions","Think through complex calls with an AI that already knows your context."],
+    ["Manage projects","Keep goals, plans, conversations, and next steps connected in one thread."],
+    ["Prepare for the moments that matter","Investor calls, pitches, negotiations, key hires."],
+    ["Stay on top of it all","Commitments, priorities, and the details you can't afford to drop."],
+    ["Build something","Turn an idea into a structured plan — and real execution."],
+  ];
+  const PROJECTS=[
+    ["Seed round","Deck, metrics, investor list, follow-ups"],
+    ["Product launch","Positioning, waitlist, launch checklist"],
+    ["First hires","Roles, JD drafts, interview loops"],
+  ];
+  const TIMELINE=[
+    ["January","Validated the idea, ran first customer interviews"],
+    ["March","Incorporated, shipped the MVP"],
+    ["June","Raising pre-seed, prepping investor calls"],
+  ];
+  const CHANNELS=[["Web","Your full workspace"],["Voice","Talk to her, hands-free"],["WhatsApp","She reaches you where you are"]];
 
   return(
     <div style={{background:C.canvas,minHeight:"100vh",fontFamily:F,color:C.ink}}>
@@ -266,166 +309,248 @@ function Homepage({onStart,mobile}){
       {/* ── HERO ── */}
       <div style={{maxWidth:1100,margin:"0 auto",padding:mobile?"92px 20px 0":"128px 52px 0"}}>
         <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?40:72,alignItems:"center"}}>
-
-          {/* Left — copy */}
           <div>
             <div style={{display:"inline-flex",alignItems:"center",gap:7,background:C.strong,borderRadius:9999,padding:"5px 12px",marginBottom:28}}>
-              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>An AI team for founders</span>
+              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>A persistent intelligence layer</span>
             </div>
-            <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,64px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.9px",color:C.ink,marginBottom:22}}>
-              Bring the idea.<br/>We'll build the business.
+            <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,62px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.8px",color:C.ink,marginBottom:22}}>
+              Your AI<br/>Chief of Staff.
             </h1>
-            <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:460,letterSpacing:0.16}}>
-              Tell Aiveree your goal. She briefs her specialist team and they get to work — getting your business off the ground, landing customers, whatever's in the way.
+            <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:470,letterSpacing:0.16}}>
+              Aiveree remembers what matters, understands your context, and turns your intentions into action — so building your business doesn't live in your head alone.
             </p>
-            <p style={{fontSize:15,color:C.muted,lineHeight:1.55,fontFamily:F,marginBottom:32,maxWidth:430}}>
-              She doesn't wait for a prompt. She knows what you're building, and she reaches out when you go quiet.
+            <p style={{fontSize:15,color:C.muted,lineHeight:1.55,fontFamily:F,marginBottom:32,maxWidth:440}}>
+              Not another chatbot you re-explain yourself to every morning. One intelligence that actually knows you, and gets more useful over time.
             </p>
             <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Tell Aiveree your goal</button>
-              <button onClick={()=>document.getElementById("video")?.scrollIntoView({behavior:"smooth"})} style={{background:"transparent",border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:C.ink,fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Watch how it works</button>
+              <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Meet Aiveree</button>
+              <button onClick={()=>scrollTo("loop")} style={{background:"transparent",border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:C.ink,fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>See how it works</button>
             </div>
-            <p style={{fontSize:13,color:C.mutedSoft,marginTop:16,fontFamily:F}}>Free to start · No credit card · 5 tasks included</p>
+            <p style={{fontSize:13,color:C.mutedSoft,marginTop:16,fontFamily:F}}>Free to start · No credit card · It remembers everything you tell it</p>
           </div>
 
-          {/* Right — product preview */}
+          {/* Right — product demonstration: conversation → memory → project → next action */}
           {!mobile&&(
             <div style={{position:"relative"}}>
               <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:24,padding:20,boxShadow:"0 24px 80px rgba(0,0,0,0.08)",overflow:"hidden"}}>
-                {/* Mini dashboard header */}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingBottom:12,borderBottom:"1px solid #f5f5f5"}}>
-                  <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700,fontFamily:"'Poppins',sans-serif"}}>Ai</div>
-                  <div>
-                    <div style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:12,color:"#000"}}>Aiveree</div>
-                    <div style={{fontSize:9,color:"#22c55e",display:"flex",alignItems:"center",gap:3}}><div style={{width:4,height:4,borderRadius:2,background:"#22c55e"}}/>Online · Business workspace</div>
-                  </div>
-                  <div style={{marginLeft:"auto",fontSize:9,color:"#bbb",background:"#f9f9f9",padding:"2px 8px",borderRadius:10,fontFamily:"Inter,sans-serif"}}>5 tasks left</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${C.line}`}}>
+                  <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700}}>Ai</div>
+                  <div style={{fontFamily:F,fontWeight:600,fontSize:12,color:C.ink}}>Aiveree</div>
+                  <div style={{marginLeft:"auto",fontSize:9,color:"#22c55e",display:"flex",alignItems:"center",gap:3}}><div style={{width:4,height:4,borderRadius:2,background:"#22c55e"}}/>Remembering</div>
                 </div>
-                {/* Aiveree message */}
+                {/* You */}
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:10}}>
+                  <div style={{background:C.strong,borderRadius:"12px 12px 2px 12px",padding:"9px 12px",fontSize:12,color:C.ink,lineHeight:1.55,maxWidth:250,fontFamily:F}}>I need to get ready for my investor call next week.</div>
+                </div>
+                {/* Aiveree */}
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
                   <div style={{width:24,height:24,borderRadius:6,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>Ai</div>
-                  <div style={{background:"#f7f7f7",borderRadius:"12px 12px 12px 2px",padding:"10px 12px",fontSize:12,color:"#333",lineHeight:1.65,fontFamily:"Inter,sans-serif",maxWidth:260}}>
-                    Morning. My team's been building since you signed up. <strong style={{color:"#000"}}>Your business plan is drafted</strong>, 3 competitors mapped, and your launch checklist is ready. Want me to walk you through it?
+                  <div style={{background:C.soft,border:`1px solid ${C.line}`,borderRadius:"12px 12px 12px 2px",padding:"10px 12px",fontSize:12,color:C.body,lineHeight:1.65,fontFamily:F,maxWidth:255}}>
+                    I know this is your <strong style={{color:C.ink,fontWeight:600}}>seed round</strong>. Based on your deck and last month's numbers, I've drafted talking points, the questions they'll push on, and the metrics that matter. I'll check in Thursday on the deck.
                   </div>
                 </div>
-                {/* Task cards */}
-                {[
-                  {icon:"📋",label:"Business plan",status:"Ready for review",color:"#5b21b6",note:"Financials + strategy drafted"},
-                  {icon:"📊",label:"Market research",status:"Complete",color:"#22c55e",note:"3 competitors mapped overnight"},
-                  {icon:"🚀",label:"Launch checklist",status:"In progress",color:"#f59e0b",note:"Registration + branding next"},
-                ].map((t,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#fafafa",borderRadius:9,marginBottom:6,border:"1px solid #f0f0f0"}}>
-                    <span style={{fontSize:14}}>{t.icon}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:11,color:"#000"}}>{t.label}</div>
-                      <div style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:10,color:"#888"}}>{t.note}</div>
-                    </div>
-                    <div style={{fontSize:9,color:t.color,background:`${t.color}12`,padding:"2px 7px",borderRadius:10,fontFamily:"Inter,sans-serif",fontWeight:500,whiteSpace:"nowrap"}}>{t.status}</div>
+                {/* Memory card */}
+                <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:10,padding:"9px 11px",marginBottom:6,display:"flex",gap:9,alignItems:"center"}}>
+                  <span style={{fontSize:13}}>🧠</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:F,fontSize:11,color:C.ink,fontWeight:500}}>Remembers: raising a £500k pre-seed</div>
+                    <div style={{fontFamily:F,fontSize:9.5,color:C.mutedSoft}}>Memory · from your conversations</div>
                   </div>
-                ))}
-                {/* WhatsApp preview */}
-                <div style={{marginTop:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:9,padding:"8px 10px",display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{fontSize:12}}>💬</span>
-                  <div>
-                    <div style={{fontFamily:"Inter,sans-serif",fontSize:9,color:"#16a34a",fontWeight:600,marginBottom:2}}>WhatsApp · Just now</div>
-                    <div style={{fontFamily:"Inter,sans-serif",fontSize:10,color:"#555",lineHeight:1.5}}>"A competitor just changed their pricing — I've drafted how you respond. Worth a look when you're free."</div>
+                </div>
+                {/* Project card */}
+                <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:10,padding:"9px 11px",marginBottom:6,display:"flex",gap:9,alignItems:"center"}}>
+                  <span style={{fontSize:13}}>📂</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:F,fontSize:11,color:C.ink,fontWeight:500}}>Project: Seed round</div>
+                    <div style={{fontFamily:F,fontSize:9.5,color:C.mutedSoft}}>4 open threads · updated today</div>
                   </div>
+                </div>
+                {/* Next action */}
+                <div style={{background:"#faf7ff",border:"1px solid #e6dcff",borderRadius:10,padding:"9px 11px",display:"flex",gap:9,alignItems:"center"}}>
+                  <span style={{fontSize:13}}>✦</span>
+                  <div style={{flex:1,fontFamily:F,fontSize:11,color:"#5b21b6",fontWeight:500}}>Suggested next: review the metrics slide</div>
+                  <span style={{fontFamily:F,fontSize:12,color:"#5b21b6"}}>→</span>
                 </div>
               </div>
-              {/* Floating badge */}
-              <div style={{position:"absolute",top:-14,right:-14,background:"#5b21b6",color:"#fff",borderRadius:20,padding:"5px 12px",fontSize:10,fontFamily:"'Poppins',sans-serif",fontWeight:600,letterSpacing:0.5,boxShadow:"0 8px 24px rgba(91,33,182,0.3)"}}>Working while you sleep ✦</div>
+              <div style={{position:"absolute",top:-14,right:-14,background:"#5b21b6",color:"#fff",borderRadius:20,padding:"5px 12px",fontSize:10,fontFamily:F,fontWeight:600,letterSpacing:0.5,boxShadow:"0 8px 24px rgba(91,33,182,0.3)"}}>Remembers you ✦</div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── SOCIAL PROOF ── */}
-      <div style={{maxWidth:1000,margin:"0 auto",padding:mobile?"64px 20px 0":"104px 52px 0"}}>
-        <p style={{textAlign:"center",fontSize:12,color:C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:44,fontWeight:600}}>What people are saying</p>
-        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?36:48}}>
-          {PROOF.map((p,i)=>(
-            <div key={i}>
-              <p style={{fontFamily:F,fontSize:mobile?17:19,color:C.ink,lineHeight:1.5,marginBottom:16,fontWeight:300,letterSpacing:-0.2}}>"{p.q}"</p>
-              <p style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>{p.n}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── VIDEO SECTION ── */}
-      <div id="video" style={{maxWidth:1100,margin:"0 auto",padding:secPad}}>
-        <div style={{textAlign:"center",marginBottom:40}}>
-          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:40,color:C.ink,marginBottom:10,letterSpacing:mobile?"-0.5px":"-1px"}}>See Aiveree in action</h2>
-          <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400,maxWidth:420,margin:"0 auto"}}>60 seconds. Your goal in. Results out. A team that keeps working.</p>
-        </div>
-        <div style={{background:C.ink,borderRadius:24,overflow:"hidden",aspectRatio:"16/9",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.10)"}}>
-          {/* Placeholder — replace src with YouTube/Vimeo embed URL when video is ready */}
-          <div style={{textAlign:"center",padding:40}}>
-            <div style={{width:64,height:64,borderRadius:32,background:"rgba(255,255,255,0.1)",border:"2px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",cursor:"pointer",transition:"all .2s"}}
-              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.2)"}
-              onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}>
-              <div style={{width:0,height:0,borderTop:"12px solid transparent",borderBottom:"12px solid transparent",borderLeft:"20px solid white",marginLeft:4}}/>
-            </div>
-            <p style={{fontFamily:"'Poppins',sans-serif",fontSize:14,color:"rgba(255,255,255,0.6)",fontWeight:500}}>Video coming soon</p>
-            <p style={{fontFamily:"Inter,sans-serif",fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:4}}>Add your YouTube/Vimeo embed URL here once ready</p>
-          </div>
-          {/* Background gradient */}
-          <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 30% 50%, rgba(91,33,182,0.3) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(167,139,250,0.15) 0%, transparent 60%)",pointerEvents:"none"}}/>
-        </div>
-        <div style={{textAlign:"center",marginTop:16}}>
-          <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:"12px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Start for free</button>
-        </div>
-      </div>
-
-      {/* ── WHAT ARE YOU WORKING TOWARD ── */}
+      {/* ── PROBLEM ── */}
       <div style={{padding:secPad}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>What are you working toward?</h2>
-            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>Tell Aiveree and she'll build a team around it.</p>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head eyebrow="The problem" title="Every AI conversation starts from zero." sub="Each time you open a new chat, you rebuild the context. Your goals, preferences, decisions, and ongoing projects are scattered across conversations, apps, and your own memory. Aiveree brings that context together." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?12:20}}>
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"22px":"28px 30px"}}>
+              <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.9,textTransform:"uppercase",color:C.mutedSoft,margin:0,marginBottom:12}}>Traditional AI</p>
+              <p style={{fontFamily:F,fontSize:mobile?18:22,fontWeight:300,color:C.muted,lineHeight:1.4,margin:0,letterSpacing:-0.3}}>"Tell me about yourself."</p>
+            </div>
+            <div style={{background:C.ink,borderRadius:16,padding:mobile?"22px":"28px 30px"}}>
+              <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.9,textTransform:"uppercase",color:"rgba(255,255,255,0.5)",margin:0,marginBottom:12}}>Aiveree</p>
+              <p style={{fontFamily:F,fontSize:mobile?18:22,fontWeight:300,color:"#fff",lineHeight:1.4,margin:0,letterSpacing:-0.3}}>"I already understand the context."</p>
+            </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
+        </div>
+      </div>
+
+      {/* ── DIFFERENCE (comparison) ── */}
+      <div style={{background:C.strong,padding:secPad}}>
+        <div style={{maxWidth:900,margin:"0 auto"}}>
+          <Head eyebrow="The difference" title="Not another chatbot." sub="General-purpose AI gives you an incredibly powerful model. Aiveree gives that intelligence a persistent understanding of you." />
+          <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,overflow:"hidden"}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${C.line}`}}>
+              <div style={{padding:mobile?"12px 16px":"14px 24px",fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.8,textTransform:"uppercase",color:C.mutedSoft}}>Traditional AI</div>
+              <div style={{padding:mobile?"12px 16px":"14px 24px",fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.8,textTransform:"uppercase",color:C.ink,borderLeft:`1px solid ${C.line}`}}>Aiveree</div>
+            </div>
+            {COMPARE.map((r,i)=>(
+              <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderTop:i?`1px solid ${C.line}`:"none"}}>
+                <div style={{padding:mobile?"13px 16px":"16px 24px",fontFamily:F,fontSize:mobile?13:15,color:C.muted,lineHeight:1.4}}>{r[0]}</div>
+                <div style={{padding:mobile?"13px 16px":"16px 24px",fontFamily:F,fontSize:mobile?13:15,color:C.ink,lineHeight:1.4,borderLeft:`1px solid ${C.line}`,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{color:"#5b21b6",flexShrink:0}}>✦</span><span>{r[1]}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── CORE LOOP ── */}
+      <div id="loop" style={{padding:secPad}}>
+        <div style={{maxWidth:1100,margin:"0 auto"}}>
+          <Head eyebrow="How it works" title="Talk. Understand. Remember. Act. Learn." sub="A loop that compounds — the more you use Aiveree, the more useful she becomes." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(5,1fr)",gap:mobile?12:16}}>
+            {LOOP.map((s,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"24px 20px"}}>
+                <div style={{width:26,height:26,borderRadius:9999,border:`1px solid ${C.lineStrong}`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:F,fontSize:12,fontWeight:500,color:C.muted,marginBottom:16}}>{i+1}</div>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:16,color:C.ink,marginBottom:7}}>{s[0]}</div>
+                <div style={{fontFamily:F,fontWeight:400,fontSize:13,color:C.muted,lineHeight:1.5}}>{s[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── MEMORY (illustrative, controllable) ── */}
+      <div style={{background:C.strong,padding:secPad}}>
+        <div style={{maxWidth:920,margin:"0 auto"}}>
+          <Head eyebrow="Memory" title="It gets more useful because it gets to know you." sub="Aiveree retains the things that make its advice better — your goals, preferences, projects, decisions, and context. It's never guessing who you are. And you can see and control every bit of it." />
+          <div style={{maxWidth:460,margin:"0 auto"}}>
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"24px 26px"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                <span style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.9,textTransform:"uppercase",color:C.mutedSoft}}>Your memory</span>
+                <Tag>Example</Tag>
+              </div>
+              <p style={{fontFamily:F,fontSize:mobile?16:18,fontWeight:400,color:C.ink,lineHeight:1.45,margin:0,marginBottom:8}}>"Raising a £500k pre-seed; targeting fintech angels."</p>
+              <p style={{fontFamily:F,fontSize:12,color:C.mutedSoft,margin:0,marginBottom:16}}>Source: Conversation · 14 July 2026</p>
+              <div style={{display:"flex",gap:8}}>
+                <span style={{fontFamily:F,fontSize:13,fontWeight:500,color:C.ink,border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:"7px 16px"}}>Edit</span>
+                <span style={{fontFamily:F,fontSize:13,fontWeight:500,color:C.muted,border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:"7px 16px"}}>Forget</span>
+              </div>
+            </div>
+            <p style={{fontFamily:F,fontSize:13,color:C.muted,textAlign:"center",marginTop:16,lineHeight:1.5}}>Inside the app, you can edit or forget anything Aiveree remembers. Your memory is yours to control — never a black box.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── PROACTIVE ── */}
+      <div style={{padding:secPad}}>
+        <div style={{maxWidth:820,margin:"0 auto"}}>
+          <Head eyebrow="Proactive" title="AI that doesn't wait for you to ask." sub="Aiveree notices when a priority stalls and reaches out — by web or WhatsApp — with something useful. You always stay in control." />
+          <div style={{maxWidth:460,margin:"0 auto",background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px":"20px 22px",display:"flex",gap:12,alignItems:"flex-start"}}>
+            <div style={{width:30,height:30,borderRadius:8,background:"#f0fdf4",border:"1px solid #bbf7d0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>💬</div>
+            <div>
+              <div style={{fontFamily:F,fontSize:11,color:"#16a34a",fontWeight:600,marginBottom:4}}>WhatsApp · Aiveree</div>
+              <div style={{fontFamily:F,fontSize:mobile?14:15,color:C.body,lineHeight:1.55}}>"You said the investor deck was a priority three weeks ago — it hasn't moved since. Want me to block time and draft the metrics slide?"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── PROJECTS (VISION — backend-dependent) ── */}
+      <div style={{background:C.ink,padding:secPad}}>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <div style={{textAlign:"center",marginBottom:16}}><Tag tone="dark">In development</Tag></div>
+          <Head dark title="The ongoing threads of your life, in one place." sub="Projects as a first-class thing — your seed round, a product launch, your first hires — each holding its own context, memories, goals, and next steps. This is where Aiveree is headed next." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
+            {PROJECTS.map((p,i)=>(
+              <div key={i} style={{background:"#1c1917",border:"1px solid rgba(255,255,255,0.09)",borderRadius:16,padding:mobile?"20px":"24px 22px"}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:16,color:"#fff",marginBottom:7}}>{p[0]}</div>
+                <div style={{fontFamily:F,fontWeight:400,fontSize:13,color:"rgba(255,255,255,0.55)",lineHeight:1.5}}>{p[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── MULTI-CHANNEL ── */}
+      <div style={{padding:secPad}}>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head eyebrow="Everywhere you are" title="One AI. Your context. Every channel." sub="Web, voice, and WhatsApp — Aiveree's understanding of you follows across every channel. Not a different AI in each place. One persistent intelligence layer." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
+            {CHANNELS.map((c,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"26px 24px",textAlign:"center"}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:17,color:C.ink,marginBottom:6}}>{c[0]}</div>
+                <div style={{fontFamily:F,fontWeight:400,fontSize:14,color:C.muted}}>{c[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── USE CASES ── */}
+      <div style={{background:C.strong,padding:secPad}}>
+        <div style={{maxWidth:1100,margin:"0 auto"}}>
+          <Head eyebrow="What you can do with it" title="Built for the way founders actually work." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
+            {USES.map((u,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"22px":"26px 24px"}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?16:17,color:C.ink,marginBottom:8,lineHeight:1.3}}>{u[0]}</div>
+                <div style={{fontFamily:F,fontWeight:400,fontSize:14,color:C.muted,lineHeight:1.55}}>{u[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── TIMELINE (VISION — backend-dependent) ── */}
+      <div style={{padding:secPad}}>
+        <div style={{maxWidth:720,margin:"0 auto"}}>
+          <div style={{textAlign:"center",marginBottom:16}}><Tag>Coming soon</Tag></div>
+          <Head title="Your Aiveree timeline." sub="A chronological view of the threads that make up your year — so progress you'd otherwise forget stays visible. On the roadmap, not live yet." />
+          <div style={{position:"relative",paddingLeft:mobile?20:28}}>
+            <div style={{position:"absolute",left:mobile?5:7,top:6,bottom:6,width:1,background:C.lineStrong}}/>
+            {TIMELINE.map((t,i)=>(
+              <div key={i} style={{position:"relative",marginBottom:i<TIMELINE.length-1?(mobile?18:22):0}}>
+                <div style={{position:"absolute",left:mobile?-19:-25,top:4,width:mobile?11:15,height:mobile?11:15,borderRadius:9999,background:C.card,border:`2px solid ${C.lineStrong}`}}/>
+                <div style={{fontFamily:F,fontWeight:600,fontSize:12,letterSpacing:0.6,textTransform:"uppercase",color:C.mutedSoft,marginBottom:4}}>{t[0]}</div>
+                <div style={{fontFamily:F,fontWeight:400,fontSize:mobile?15:16,color:C.ink,lineHeight:1.45}}>{t[1]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── FINAL CTA + functional entry ── */}
+      <div style={{background:C.ink,padding:mobile?"64px 20px":"112px 52px"}}>
+        <div style={{maxWidth:1000,margin:"0 auto",textAlign:"center"}}>
+          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?30:48,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.6px",lineHeight:1.05,marginBottom:16}}>Meet your Chief of Staff.</h2>
+          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.6)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:28}}>Tell Aiveree what you're building. She'll remember it, understand it, and start turning it into action.</p>
+          <button onClick={()=>onStart(null)} style={{background:"#fff",border:"none",borderRadius:9999,padding:mobile?"13px 26px":"14px 32px",color:C.ink,fontWeight:600,cursor:"pointer",fontSize:15,fontFamily:F,marginBottom:mobile?32:40}}>Meet Aiveree</button>
+          <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.4)",letterSpacing:0.96,textTransform:"uppercase",fontWeight:600,marginBottom:16}}>Or start with a goal</p>
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:14,textAlign:"left"}}>
             {live.map(d=>(
               <button key={d.id} onClick={()=>onStart(d.id)}
-                style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",cursor:"pointer",textAlign:"left",fontFamily:F,transition:"border-color .15s ease, background .15s ease"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.lineStrong;e.currentTarget.style.background=C.soft;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.background=C.card;}}>
-                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.ink,marginBottom:8}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:mobile?13:15,color:C.muted,lineHeight:1.5,fontFamily:F}}>{d.desc}</div>
+                style={{background:"#1c1917",border:"1px solid rgba(255,255,255,0.1)",borderRadius:16,padding:mobile?"16px 14px":"20px 18px",cursor:"pointer",textAlign:"left",fontFamily:F,transition:"border-color .15s ease"}}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.35)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.1)";}}>
+                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?14:15,color:"#fff",marginBottom:5}}>{d.label}</div>
+                <div style={{fontWeight:400,fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.45,fontFamily:F}}>{d.desc}</div>
               </button>
             ))}
           </div>
-          <div style={{marginTop:mobile?10:16,display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
-            {coming.map(d=>(
-              <div key={d.id} style={{background:"transparent",border:`1px dashed ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",textAlign:"left"}}>
-                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.mutedSoft,marginBottom:8}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:13,color:C.mutedSoft,fontFamily:F}}>Coming soon</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ── HOW IT WORKS ── */}
-      <div id="how" style={{background:C.strong,padding:secPad}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>How Aiveree works</h2>
-            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>She's not a chatbot. She has a team.</p>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?16:24}}>
-            {[
-              {n:"01",t:"Tell Aiveree your goal",d:"Have a quick conversation. Tell us what you're building, where you're headed, or what's in your way. No forms. Just talk."},
-              {n:"02",t:"She briefs her team",d:"Aiveree configures a specialist team around your exact situation. She briefs them, manages them, and holds them accountable. You do nothing."},
-              {n:"03",t:"Results come to you",d:"Business plans built. Markets mapped. First customers found. She reaches out via WhatsApp when something needs your attention. Real work. Done."},
-            ].map((s,i)=>(
-              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"24px":"32px 30px",position:"relative"}}>
-                <div style={{fontFamily:F,fontWeight:300,fontSize:40,color:C.mutedSoft,lineHeight:1,marginBottom:20,letterSpacing:-1}}>{s.n}</div>
-                <h3 style={{fontFamily:F,fontWeight:500,fontSize:18,color:C.ink,marginBottom:8}}>{s.t}</h3>
-                <p style={{fontFamily:F,fontWeight:400,fontSize:15,color:C.body,lineHeight:1.55,margin:0}}>{s.d}</p>
-              </div>
-            ))}
-          </div>
+          <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.35)",marginTop:18}}>{coming.length} more areas coming soon · Free to start · No credit card</p>
         </div>
       </div>
 
@@ -435,7 +560,7 @@ function Homepage({onStart,mobile}){
           <div style={{width:24,height:24,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:10,color:"#fff",fontFamily:F}}>Ai</div>
           <span style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>Aiveree</span>
         </div>
-        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · For founders and entrepreneurs</span>
+        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · Your AI Chief of Staff</span>
       </div>
     </div>
   );
