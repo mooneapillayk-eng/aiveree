@@ -277,9 +277,9 @@ function Homepage({onStart,mobile}){
     ["Research something","Research something for me."],
   ];
   const WORK=[
-    ["AI Governance SaaS","You were defining the first version of the compliance engine.",38],
-    ["Rear extension","You were weighing up whether to proceed after the council's response.",62],
-    ["Interview preparation","You were researching the role and the likely questions.",22],
+    ["Starting a business","You were choosing which market to lead with.",40],
+    ["Moving house","You were comparing the two mortgage offers.",62],
+    ["A career move","You were prepping for Thursday's interview.",25],
   ];
   const DEVELOP=[
     ["First session","“Tell me about your idea.”"],
@@ -322,13 +322,57 @@ function Homepage({onStart,mobile}){
               style={{fontFamily:F,fontSize:13,fontWeight:500,color:C.body,background:"transparent",border:`1px solid ${C.line}`,borderRadius:9999,padding:"8px 15px",cursor:"pointer"}}>{s[0]}</button>
           ))}
         </div>
-        <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:18}}>Free to start · No credit card · It remembers what matters</p>
+        <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:18}}>Free to start · No credit card · Works over web, voice and WhatsApp</p>
+      </div>
+
+      {/* ── TEAM + WHATSAPP (upfront differentiator) ── */}
+      <div style={{background:C.strong,padding:secPad,marginTop:mobile?24:40}}>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head eyebrow="Not just a chat" title="You bring the goal. Aiveree's team does the work." sub="Aiveree briefs a specialist team on what you're building. They work in the background — research, drafts, plans — and she reaches you on WhatsApp when there's progress, or a decision that needs you." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?12:16,alignItems:"start"}}>
+            {/* Team working */}
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:6,paddingBottom:13,borderBottom:`1px solid ${C.line}`}}>
+                {mark(26)}
+                <div style={{fontFamily:F,fontWeight:600,fontSize:13,color:C.ink}}>Aiveree's team</div>
+                <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontFamily:F,fontSize:11,color:"#16a34a"}}><span style={{width:5,height:5,borderRadius:9999,background:"#16a34a",display:"inline-block"}}/>Working</div>
+              </div>
+              {[
+                ["Market research","3 competitors mapped","done"],
+                ["First plan","drafted and ready to read","done"],
+                ["Options","comparison being prepared","working"],
+              ].map((r,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 0",borderBottom:i<2?`1px solid ${C.line}`:"none"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:F,fontSize:13.5,fontWeight:500,color:C.ink}}>{r[0]}</div>
+                    <div style={{fontFamily:F,fontSize:12,color:C.mutedSoft}}>{r[1]}</div>
+                  </div>
+                  {r[2]==="done"
+                    ?<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:"#16a34a",background:"#f0fdf4",border:"1px solid #c7ecd0",borderRadius:9999,padding:"3px 10px"}}>Done</span>
+                    :<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:C.muted,background:C.soft,border:`1px solid ${C.line}`,borderRadius:9999,padding:"3px 10px"}}>Working</span>}
+                </div>
+              ))}
+            </div>
+            {/* WhatsApp */}
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:14}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#f0fdf4",border:"1px solid #bbf7d0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>💬</div>
+                <div style={{fontFamily:F,fontSize:12,fontWeight:600,color:"#16a34a"}}>WhatsApp · Aiveree</div>
+                <div style={{marginLeft:"auto",fontFamily:F,fontSize:11,color:C.mutedSoft}}>now</div>
+              </div>
+              <div style={{background:"#f0fdf4",border:"1px solid #d6f0dd",borderRadius:"4px 14px 14px 14px",padding:"12px 14px",fontFamily:F,fontSize:mobile?14:14.5,color:C.ink,lineHeight:1.55}}>
+                Morning 👋 The team's mapped your market and drafted a first plan. One thing needs you — which segment to lead with? I've laid out the trade-offs.
+              </div>
+              <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:12,lineHeight:1.5}}>She reaches you where you are — and you stay in control of every call.</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── CONTINUE WITH YOUR CHIEF OF STAFF (illustrative preview) ── */}
-      <div style={{padding:secPad,marginTop:mobile?24:40}}>
+      <div style={{padding:secPad}}>
         <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="The more you bring, the more Aiveree understands. Here's what an ongoing workspace looks like." />
+          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="Whatever you bring — a business, a move, a career step, a decision — Aiveree keeps the thread and picks up exactly where you left off." />
           <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:14}}>Continue with your Chief of Staff</p>
           <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
             {WORK.map((w,i)=>(
@@ -348,7 +392,7 @@ function Homepage({onStart,mobile}){
             <div style={{width:30,height:30,borderRadius:9,background:C.card,border:`1px solid ${ABL}`,display:"flex",alignItems:"center",justifyContent:"center",color:A,flexShrink:0,fontSize:15}}>✦</div>
             <div style={{flex:1}}>
               <div style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:A,opacity:0.85,marginBottom:7}}>Aiveree noticed</div>
-              <p style={{fontFamily:F,fontSize:mobile?14.5:15,color:C.ink,lineHeight:1.55,margin:0,marginBottom:14,maxWidth:"62ch"}}>Your <strong style={{fontWeight:600}}>AI Governance SaaS</strong> has moved from exploration to product definition. The next important decision looks like the scope of the first version.</p>
+              <p style={{fontFamily:F,fontSize:mobile?14.5:15,color:C.ink,lineHeight:1.55,margin:0,marginBottom:14,maxWidth:"62ch"}}>Your <strong style={{fontWeight:600}}>new business</strong> has moved from exploring the idea to shaping the plan. The next decision looks like which market to lead with.</p>
               <div style={{display:"flex",gap:9}}>
                 <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:"#fff",background:A,borderRadius:9999,padding:"8px 16px"}}>Discuss</span>
                 <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:C.body,border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:"8px 16px"}}>Dismiss</span>
