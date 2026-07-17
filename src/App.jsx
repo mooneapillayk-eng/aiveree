@@ -297,8 +297,8 @@ function Homepage({onStart,mobile}){
         <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,9vw,46px)":"clamp(46px,5vw,64px)",fontWeight:300,lineHeight:1.04,letterSpacing:mobile?"-1.2px":"-2px",color:C.ink,marginBottom:20}}>
           What are you building?
         </h1>
-        <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.55,fontWeight:400,maxWidth:540,margin:"0 auto",marginBottom:mobile?26:32}}>
-          Bring an idea, a problem or an ambition. Aiveree helps you think it through, turn it into a plan, and make progress.
+        <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.6,fontWeight:400,maxWidth:600,margin:"0 auto",marginBottom:mobile?26:32}}>
+          Bring an idea, a problem or an ambition. Aiveree thinks it through with you, puts a specialist team to work on the research, drafts and plans, remembers every decision and detail — and comes back to you on WhatsApp when something needs your call.
         </p>
 
         {/* Composer — one substantial input that begins the conversation */}
