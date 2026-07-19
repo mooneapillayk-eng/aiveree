@@ -91,6 +91,23 @@ export const CONFIG = {
   // ── Data provider ────────────────────────────────────────────────────────────
   dataProvider: process.env.ENGINE_DATA_PROVIDER || 'mock', // 'mock' | 'live'
 
+  // Live provider (Yahoo Finance, no API key). See engine/data/liveProvider.mjs.
+  live: {
+    riskFreeRate: 0.04, // used to compute Black-Scholes option deltas from IV
+    historyRange: '1y', // price history window for DMAs / IV-rank proxy
+    maxExpiries: 3, // option expiries to pull within the DTE window
+    requestTimeoutMs: 15_000,
+    // Broad candidate list the screener ranks when discovery is on. Yahoo has no
+    // stable keyless "movers" feed, so discovery draws from this list (edit
+    // freely) plus the core universe.
+    candidateList: [
+      'AMD', 'MU', 'XPEV', 'BE', 'EH',
+      'NVDA', 'INTC', 'SMCI', 'PLTR', 'SOFI',
+      'RIVN', 'LCID', 'NIO', 'F', 'T',
+      'PYPL', 'SHOP', 'COIN', 'MARA', 'RIOT',
+    ],
+  },
+
   // ── State ────────────────────────────────────────────────────────────────────
   statePath: process.env.ENGINE_STATE_PATH || 'engine/state/portfolio.json',
 };

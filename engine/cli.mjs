@@ -18,12 +18,14 @@ import { Portfolio } from './portfolio.mjs';
 import { runCycle } from './run.mjs';
 
 function parseArgs(argv) {
-  const opts = { verbose: false, notify: true, persist: true, reset: false, symbols: null };
+  const opts = { verbose: false, notify: true, persist: true, reset: false, symbols: null, provider: null };
   for (const arg of argv.slice(2)) {
     if (arg === '--verbose' || arg === '-v') opts.verbose = true;
     else if (arg === '--no-notify') opts.notify = false;
     else if (arg === '--dry-run') opts.persist = false;
     else if (arg === '--reset') opts.reset = true;
+    else if (arg === '--live') opts.provider = 'live';
+    else if (arg.startsWith('--provider=')) opts.provider = arg.split('=')[1].trim();
     else if (arg.startsWith('--symbols=')) opts.symbols = arg.split('=')[1].split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
     else if (arg === '--help' || arg === '-h') {
       printHelp();
@@ -43,6 +45,8 @@ function printHelp() {
 Usage: node engine/cli.mjs [options]
   --verbose, -v       Print per-symbol reasoning
   --symbols=A,B,C     Override the universe
+  --provider=mock|live  Data source (default mock; live = Yahoo Finance)
+  --live              Shorthand for --provider=live
   --no-notify         Skip Telegram delivery (console only)
   --dry-run           Do not persist the ledger
   --reset             Reset to a fresh paper account before running
@@ -51,6 +55,7 @@ Usage: node engine/cli.mjs [options]
 
 async function main() {
   const opts = parseArgs(process.argv);
+  if (opts.provider) CONFIG.dataProvider = opts.provider;
 
   if (opts.reset && existsSync(CONFIG.statePath)) {
     rmSync(CONFIG.statePath);
@@ -74,6 +79,18 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('Engine run failed:', err);
+  const msg = String(err?.message || err);
+  const networkish = /finance\.yahoo\.com|fetch failed|ENOTFOUND|ECONNREFUSED|HTTP 40[37]|getcrumb/i.test(msg);
+  if (CONFIG.dataProvider === 'live' && networkish) {
+    console.error('Live data fetch failed:', msg);
+    console.error(
+      '\nThe live provider needs outbound HTTPS access to query1.finance.yahoo.com.\n' +
+        'A 403/407 here means an egress policy is blocking that host (common in sandboxes).\n' +
+        'Run it from a network where Yahoo Finance is reachable, or switch back with\n' +
+        '`--provider=mock` for the offline deterministic engine.'
+    );
+  } else {
+    console.error('Engine run failed:', err);
+  }
   process.exit(1);
 });

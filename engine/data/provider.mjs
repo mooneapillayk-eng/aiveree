@@ -25,18 +25,17 @@
 // The mock provider does not implement discovery (offline fixtures only).
 
 import { MockProvider } from './mockProvider.mjs';
+import { LiveProvider } from './liveProvider.mjs';
 
 export function createProvider(config) {
   switch (config.dataProvider) {
     case 'mock':
       return new MockProvider(config);
     case 'live':
-      // Drop-in point for a real feed. Intentionally not wired: paper engine
-      // ships offline-first. Implement fetchSnapshot(symbol, asOf) returning the
-      // shape above and register it here.
-      throw new Error(
-        "Live data provider not configured. Set ENGINE_DATA_PROVIDER=mock or implement a live adapter in engine/data/."
-      );
+      // Live Yahoo Finance feed (no API key). Requires outbound network access
+      // to query1.finance.yahoo.com. Still paper trading — execution simulates
+      // fills; only the market data is live.
+      return new LiveProvider(config);
     default:
       throw new Error(`Unknown data provider: ${config.dataProvider}`);
   }

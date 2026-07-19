@@ -22,7 +22,7 @@ Universe (+ screener) -> Data -> [Valuation | Technical | Positioning]
 |-------|--------|----------------|
 | Universe & config | `config.mjs` | Symbols, thresholds, risk limits, sector map |
 | Screener (discovery) | `screener.mjs` | Finds & ranks NEW candidates beyond the fixed universe; dormant on the mock feed (needs live data) |
-| Data collection | `data/provider.mjs`, `data/mockProvider.mjs`, `data/fixtures.mjs` | Normalised per-symbol snapshot (price/volume, fundamentals, short interest, option chain, earnings, IV) |
+| Data collection | `data/provider.mjs`, `data/mockProvider.mjs`, `data/liveProvider.mjs`, `data/fixtures.mjs` | Normalised per-symbol snapshot (price/volume, fundamentals, short interest, option chain, earnings, IV) — mock (offline) or live (Yahoo) |
 | Valuation lens | `analysis/valuation.mjs` | Cheap/expensive from P/S, growth, cash, leverage |
 | Technical lens | `analysis/technical.mjs` | 50/200 DMA, trend, Fibonacci retracement, pullback-to-support |
 | Positioning lens | `analysis/positioning.mjs` | Short interest, put/call OI, IV rank |
@@ -86,14 +86,50 @@ serves offline fixtures only. A live provider opts in by exposing
 Until then, the report simply prints `discovery: dormant (...)` and analyses the
 explicit universe. Tune it under `screener` in `config.mjs`.
 
-## Swapping in live data
+## Live data (Yahoo Finance, no API key)
 
-The engine only ever sees the normalised snapshot documented at the top of
-`data/provider.mjs`. To go from paper-with-mock-data to paper-with-live-data,
-implement a provider with `fetchSnapshot(symbol)` returning that shape (from
-yfinance / Polygon / Tradier / a broker feed), register it in
-`createProvider()`, and set `ENGINE_DATA_PROVIDER=live`. Nothing downstream
-changes. This remains paper trading — the execution engine still simulates fills.
+A live provider (`data/liveProvider.mjs`) sources the normalised snapshot from
+Yahoo Finance — the same keyless endpoints `yfinance` uses. Run it with:
+
+```bash
+npm run engine:live                       # live data, full universe + discovery
+node engine/cli.mjs --live --symbols=AMD,MU,NVDA --verbose
+ENGINE_DATA_PROVIDER=live node engine/cli.mjs
+```
+
+It remains **paper trading** — only the market data is live; the execution
+engine still simulates fills. What it pulls per symbol:
+
+| Field | Yahoo endpoint |
+|-------|----------------|
+| Price + 1y history (DMAs, IV-rank proxy) | `v8/finance/chart` |
+| Option chain (bid/ask/IV/OI/volume) | `v7/finance/options` |
+| Fundamentals, short interest, earnings date | `v10/finance/quoteSummary` (cookie+crumb) |
+
+Because Yahoo returns **no option greeks**, deltas are computed with
+Black-Scholes from each contract's implied volatility (`bsDelta`, risk-free rate
+in `config.live`). Because Yahoo exposes **no historical IV**, `ivRank` is a
+realized-volatility percentile **proxy** (`computeIvRankProxy`). Fundamentals,
+short interest and earnings are **best-effort**: if the crumb-gated call fails,
+the snapshot still returns and the lenses tolerate the missing fields.
+
+With live data on, the **screener wakes up**: `listCandidates()` returns
+`config.live.candidateList`, and the top names clearing `minScreenScore` are
+promoted into the run automatically.
+
+> **Network requirement.** The live provider needs outbound HTTPS to
+> `query1.finance.yahoo.com`. In locked-down sandboxes an egress policy may
+> return `403/407` for that host — the CLI detects this and prints how to
+> proceed. Run it from a network where Yahoo is reachable, or use
+> `--provider=mock` for the offline engine.
+
+### Adding a different vendor (Polygon / Tradier / broker)
+
+The engine only ever sees the snapshot documented at the top of
+`data/provider.mjs`. To use another feed, implement a class with
+`fetchSnapshot(symbol)` (and, for discovery, `supportsDiscovery = true` +
+`listCandidates()`), register it in `createProvider()`, and select it with
+`--provider=<name>` / `ENGINE_DATA_PROVIDER`. Nothing downstream changes.
 
 ## Design guarantees
 
@@ -107,6 +143,15 @@ changes. This remains paper trading — the execution engine still simulates fil
 
 ## Known limitations
 
-See the "Known limitations" section of the top-level change summary. In short:
-mock data is illustrative not live; the fill model is a simplification; there is
-no position *management* loop yet (open-only); and greeks are approximated.
+- **Live mode needs network egress** to Yahoo; blocked hosts fail cleanly with a
+  hint (see above).
+- **IV rank is a proxy** (realized-vol percentile) — Yahoo exposes no historical
+  IV. A vendor that provides real IV rank would drop straight in.
+- **Greeks are computed**, not vendor-supplied (Black-Scholes from IV).
+- **Fundamentals/short-interest are best-effort** on the free Yahoo feed and can
+  be sparse for some tickers; the engine degrades gracefully.
+- The **fill model is a simplification** (mid when tight, conservative when wide;
+  no partial fills / slippage curve).
+- **Open-only**: there is no position *management* loop yet (roll/close/assignment).
+- Mock mode is deterministic and illustrative — good for tests and demos, not a
+  market forecast.
