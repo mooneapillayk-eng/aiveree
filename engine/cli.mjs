@@ -45,7 +45,7 @@ function printHelp() {
 Usage: node engine/cli.mjs [options]
   --verbose, -v       Print per-symbol reasoning
   --symbols=A,B,C     Override the universe
-  --provider=mock|live  Data source (default mock; live = Yahoo Finance)
+  --provider=mock|live|polygon  Data source (mock=offline, live=Yahoo, polygon=Polygon.io)
   --live              Shorthand for --provider=live
   --no-notify         Skip Telegram delivery (console only)
   --dry-run           Do not persist the ledger
@@ -80,13 +80,21 @@ async function main() {
 
 main().catch((err) => {
   const msg = String(err?.message || err);
-  const networkish = /finance\.yahoo\.com|fetch failed|ENOTFOUND|ECONNREFUSED|HTTP 40[37]|getcrumb/i.test(msg);
-  if (CONFIG.dataProvider === 'live' && networkish) {
+  const networkish = /finance\.yahoo\.com|api\.polygon\.io|fetch failed|ENOTFOUND|ECONNREFUSED|HTTP 40[37]|getcrumb/i.test(msg);
+  if (/POLYGON_API_KEY/.test(msg)) {
+    console.error('Polygon provider needs an API key.');
+    console.error(
+      '\nSet POLYGON_API_KEY from your Polygon.io ("Massive") account — the $29/mo\n' +
+        'Options Starter tier is sufficient (real greeks + IV, 2y history):\n' +
+        '  export POLYGON_API_KEY=your_key_here\n' +
+        'Or use `--provider=mock` (offline) / `--provider=live` (Yahoo, no key).'
+    );
+  } else if ((CONFIG.dataProvider === 'live' || CONFIG.dataProvider === 'polygon') && networkish) {
     console.error('Live data fetch failed:', msg);
     console.error(
-      '\nThe live provider needs outbound HTTPS access to query1.finance.yahoo.com.\n' +
+      `\nThe ${CONFIG.dataProvider} provider needs outbound HTTPS to its data host.\n` +
         'A 403/407 here means an egress policy is blocking that host (common in sandboxes).\n' +
-        'Run it from a network where Yahoo Finance is reachable, or switch back with\n' +
+        'Run it from a network where the host is reachable, or switch back with\n' +
         '`--provider=mock` for the offline deterministic engine.'
     );
   } else {

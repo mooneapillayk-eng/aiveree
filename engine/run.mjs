@@ -4,6 +4,7 @@
 // Pure with respect to its inputs: given the same provider data and the same
 // starting ledger, it produces the same decisions.
 
+import { readFileSync, existsSync } from 'node:fs';
 import { createProvider } from './data/provider.mjs';
 import { screenUniverse } from './screener.mjs';
 import { evaluateOpportunity } from './opportunity.mjs';
@@ -11,6 +12,7 @@ import { selectStrategy } from './strategy.mjs';
 import { assessRisk } from './risk.mjs';
 import { buildLimitOrder, simulateFill, reconcile } from './execution.mjs';
 import { formatRunReport, formatVerbose, deliver } from './reporter.mjs';
+import { IvStore, atmIvFromSnapshot } from './ivstore.mjs';
 
 export async function runCycle(config, { symbols, verbose = false, notify = true, persist = true, portfolio } = {}) {
   const provider = createProvider(config);
@@ -19,6 +21,12 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
   // Discovery: promote fresh candidates into the run (dormant on the mock feed).
   const screen = await screenUniverse(config, provider, { baseUniverse });
   const universe = screen.universe;
+
+  // Overlays that refine a live provider's snapshot (never touch the mock feed):
+  //  - IV-rank store: accumulates ATM IV and computes a TRUE IV rank over time.
+  //  - Earnings calendar: supplies next-earnings dates the vendor may omit.
+  const ivStore = config.ivStore?.enabled && provider.usesIvStore ? new IvStore(config) : null;
+  const earningsCal = provider.usesEarningsOverride ? loadEarningsCalendar(config) : {};
 
   const report = {
     asOf: provider.asOf || null,
@@ -42,6 +50,21 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
   for (const symbol of universe) {
     const snapshot = await provider.fetchSnapshot(symbol);
     if (report.asOf == null) report.asOf = snapshot.asOf;
+
+    // Apply overlays before any analysis sees the snapshot.
+    if (ivStore) {
+      const atm = atmIvFromSnapshot(snapshot);
+      ivStore.record(symbol, snapshot.asOf, atm);
+      const r = ivStore.rank(symbol, atm);
+      if (r.status === 'ok') {
+        snapshot.ivRank = r.rank;
+        snapshot.ivRankSource = `iv-store (${r.samples} samples)`;
+      } else {
+        snapshot.ivRankSource = `realized-vol proxy (IV history warming up: ${r.samples}/${config.ivStore.minSamples})`;
+      }
+    }
+    if (earningsCal[symbol]) snapshot.earnings = { nextDate: earningsCal[symbol] };
+
     const sharesOwned = portfolio.sharesOwned(symbol);
 
     // 1) Opportunity
@@ -54,7 +77,7 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
     // 3) Risk assessment / sizing
     const risk = assessRisk(structure, portfolio, config);
 
-    const decision = { symbol, asOf: snapshot.asOf, opportunity, structure, risk };
+    const decision = { symbol, asOf: snapshot.asOf, opportunity, structure, risk, ivRankSource: snapshot.ivRankSource || null };
 
     if (!risk.approved) {
       decision.action = 'NO_TRADE';
@@ -111,13 +134,28 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
     openPositions: portfolio.openPositions().length,
   };
 
-  if (persist) portfolio.save();
+  if (persist) {
+    portfolio.save();
+    if (ivStore) ivStore.save(); // accumulate IV history for future true IV ranks
+  }
 
   const summary = formatRunReport(report);
   let delivery = null;
   if (notify) delivery = await deliver(summary, config);
 
   return { report, summary, delivery };
+}
+
+// Load an optional { SYMBOL: 'YYYY-MM-DD' } earnings-date map from disk.
+function loadEarningsCalendar(config) {
+  const path = config.earningsCalendarPath;
+  if (!path || !existsSync(path)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 }
 
 const round2 = (x) => Math.round(x * 100) / 100;

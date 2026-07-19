@@ -89,7 +89,7 @@ export const CONFIG = {
   },
 
   // ── Data provider ────────────────────────────────────────────────────────────
-  dataProvider: process.env.ENGINE_DATA_PROVIDER || 'mock', // 'mock' | 'live'
+  dataProvider: process.env.ENGINE_DATA_PROVIDER || 'mock', // 'mock' | 'live' | 'polygon'
 
   // Live provider (Yahoo Finance, no API key). See engine/data/liveProvider.mjs.
   live: {
@@ -107,6 +107,38 @@ export const CONFIG = {
       'PYPL', 'SHOP', 'COIN', 'MARA', 'RIOT',
     ],
   },
+
+  // Polygon.io ("Massive") provider — real vendor greeks + implied volatility.
+  // Requires POLYGON_API_KEY (the $29/mo Options Starter tier is sufficient:
+  // 15-min delayed prices are fine for a once-a-day paper engine, and it ships
+  // real greeks + IV plus 2y history). See engine/data/polygonProvider.mjs.
+  polygon: {
+    apiKey: process.env.POLYGON_API_KEY || null,
+    baseUrl: 'https://api.polygon.io',
+    historyDays: 365, // daily bars pulled for DMAs / realized-vol warm-up
+    maxExpiries: 3, // option expiries kept within the DTE window
+    requestTimeoutMs: 15_000,
+    riskFreeRate: 0.04, // only used if a contract is missing a vendor delta
+    candidateList: null, // defaults to `live.candidateList` when null
+  },
+
+  // ── IV-rank store ────────────────────────────────────────────────────────────
+  // True IV rank needs a year of IV history, which no vendor hands over as a
+  // single number. The engine records each run's at-the-money IV per symbol and
+  // computes the rank from accumulated history. Until `minSamples` exist it
+  // falls back to a realized-volatility proxy (clearly labelled "warming up").
+  ivStore: {
+    enabled: true,
+    path: process.env.ENGINE_IV_STORE_PATH || 'engine/state/iv-history.json',
+    lookbackDays: 252, // ~1 trading year window for the percentile
+    minSamples: 40, // below this, use the realized-vol proxy instead
+  },
+
+  // ── Earnings calendar override ───────────────────────────────────────────────
+  // Polygon's cheap tiers don't ship an earnings calendar, so the blackout gate
+  // can read next-earnings dates from a JSON file: { "AMD": "2026-08-19", ... }.
+  // Optional; when absent the engine uses whatever the provider supplies.
+  earningsCalendarPath: process.env.ENGINE_EARNINGS_PATH || 'engine/state/earnings.json',
 
   // ── State ────────────────────────────────────────────────────────────────────
   statePath: process.env.ENGINE_STATE_PATH || 'engine/state/portfolio.json',

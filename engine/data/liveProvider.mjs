@@ -184,6 +184,8 @@ export class LiveProvider {
     this.name = 'yahoo';
     this.asOf = new Date().toISOString().slice(0, 10);
     this.supportsDiscovery = true;
+    this.usesIvStore = true; // let the orchestrator build a true IV rank over time
+    this.usesEarningsOverride = true; // honour an earnings-calendar file if present
     this._crumb = null;
     this._cookie = null;
   }

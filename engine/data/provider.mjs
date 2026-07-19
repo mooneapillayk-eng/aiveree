@@ -26,6 +26,7 @@
 
 import { MockProvider } from './mockProvider.mjs';
 import { LiveProvider } from './liveProvider.mjs';
+import { PolygonProvider } from './polygonProvider.mjs';
 
 export function createProvider(config) {
   switch (config.dataProvider) {
@@ -36,6 +37,9 @@ export function createProvider(config) {
       // to query1.finance.yahoo.com. Still paper trading — execution simulates
       // fills; only the market data is live.
       return new LiveProvider(config);
+    case 'polygon':
+      // Polygon.io / Massive feed (POLYGON_API_KEY). Real vendor greeks + IV.
+      return new PolygonProvider(config);
     default:
       throw new Error(`Unknown data provider: ${config.dataProvider}`);
   }

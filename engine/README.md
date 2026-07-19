@@ -22,7 +22,8 @@ Universe (+ screener) -> Data -> [Valuation | Technical | Positioning]
 |-------|--------|----------------|
 | Universe & config | `config.mjs` | Symbols, thresholds, risk limits, sector map |
 | Screener (discovery) | `screener.mjs` | Finds & ranks NEW candidates beyond the fixed universe; dormant on the mock feed (needs live data) |
-| Data collection | `data/provider.mjs`, `data/mockProvider.mjs`, `data/liveProvider.mjs`, `data/fixtures.mjs` | Normalised per-symbol snapshot (price/volume, fundamentals, short interest, option chain, earnings, IV) — mock (offline) or live (Yahoo) |
+| Data collection | `data/provider.mjs`, `data/mockProvider.mjs`, `data/liveProvider.mjs`, `data/polygonProvider.mjs`, `data/fixtures.mjs` | Normalised per-symbol snapshot — mock (offline), live (Yahoo, no key), or polygon (real greeks + IV) |
+| IV-rank store | `ivstore.mjs` | Accumulates ATM IV to compute a true 52-week IV rank; realized-vol proxy while warming up |
 | Valuation lens | `analysis/valuation.mjs` | Cheap/expensive from P/S, growth, cash, leverage |
 | Technical lens | `analysis/technical.mjs` | 50/200 DMA, trend, Fibonacci retracement, pullback-to-support |
 | Positioning lens | `analysis/positioning.mjs` | Short interest, put/call OI, IV rank |
@@ -123,12 +124,52 @@ promoted into the run automatically.
 > proceed. Run it from a network where Yahoo is reachable, or use
 > `--provider=mock` for the offline engine.
 
-### Adding a different vendor (Polygon / Tradier / broker)
+## Polygon.io provider (real greeks + true IV rank)
+
+For production use, the **Polygon** provider (`data/polygonProvider.mjs`) pulls
+**vendor greeks and implied volatility** — no Black-Scholes approximation — plus
+fundamentals and short interest. Set a key and go:
+
+```bash
+export POLYGON_API_KEY=your_key
+npm run engine:polygon
+node engine/cli.mjs --provider=polygon --symbols=AMD,MU,NVDA -v
+```
+
+The **Options Starter tier ($29/mo) is sufficient**: 15-minute-delayed prices are
+fine for a once-a-day paper engine, and it ships real greeks + IV with 2 years of
+history. Real-time ($199) only buys live intraday prices this engine doesn't use.
+
+**True IV rank.** No vendor exposes a 52-week IV *rank* as one field, so the
+engine keeps its own: on every run it records each symbol's at-the-money IV
+(`engine/state/iv-history.json`) and computes the rank as a percentile over the
+trailing year (`ivStore` in config). Until `minSamples` accumulate it falls back
+to a realized-volatility proxy — and the report says so per symbol
+(`IV rank source: realized-vol proxy (warming up: 12/40)` →
+`IV rank source: iv-store (63 samples)`). This overlay also refines the Yahoo
+provider's IV rank over time. The mock provider is never touched (stays
+deterministic).
+
+**Earnings blackout stays real.** Polygon's cheap tiers ship no earnings
+calendar, so the blackout gate can read next-earnings dates from a JSON file at
+`engine/state/earnings.json` (or `ENGINE_EARNINGS_PATH`):
+
+```json
+{ "AMD": "2026-08-19", "MU": "2026-09-24", "NVDA": "2026-08-27" }
+```
+
+When present it overrides/supplies `earnings.nextDate` for live providers.
+
+> **Verify one endpoint for your plan:** the short-interest path
+> (`/v3/reference/short-interest`) varies by Polygon plan; the code is null-safe
+> if your plan doesn't include it, and the positioning lens degrades gracefully.
+
+### Adding yet another vendor (Tradier / broker)
 
 The engine only ever sees the snapshot documented at the top of
 `data/provider.mjs`. To use another feed, implement a class with
-`fetchSnapshot(symbol)` (and, for discovery, `supportsDiscovery = true` +
-`listCandidates()`), register it in `createProvider()`, and select it with
+`fetchSnapshot(symbol)` (optionally `supportsDiscovery`, `usesIvStore`,
+`usesEarningsOverride`), register it in `createProvider()`, and select it with
 `--provider=<name>` / `ENGINE_DATA_PROVIDER`. Nothing downstream changes.
 
 ## Design guarantees
@@ -143,13 +184,17 @@ The engine only ever sees the snapshot documented at the top of
 
 ## Known limitations
 
-- **Live mode needs network egress** to Yahoo; blocked hosts fail cleanly with a
-  hint (see above).
-- **IV rank is a proxy** (realized-vol percentile) — Yahoo exposes no historical
-  IV. A vendor that provides real IV rank would drop straight in.
-- **Greeks are computed**, not vendor-supplied (Black-Scholes from IV).
-- **Fundamentals/short-interest are best-effort** on the free Yahoo feed and can
-  be sparse for some tickers; the engine degrades gracefully.
+- **Live modes need network egress** to their data host; blocked hosts fail
+  cleanly with a hint (see above).
+- **IV rank** is real once the IV-history store has warmed up; before that it is a
+  realized-vol proxy (labelled in the report). Back-history isn't fetched
+  automatically — it accumulates one run per day, or you can backfill the store.
+- **Greeks:** vendor-supplied on Polygon; Black-Scholes-computed on Yahoo.
+- **Fundamentals/short-interest are best-effort** on both live feeds and can be
+  sparse for some tickers; the engine degrades gracefully. Verify the Polygon
+  short-interest endpoint for your plan.
+- **Earnings dates** on Polygon come from the optional calendar file, not the
+  vendor.
 - The **fill model is a simplification** (mid when tight, conservative when wide;
   no partial fills / slippage curve).
 - **Open-only**: there is no position *management* loop yet (roll/close/assignment).

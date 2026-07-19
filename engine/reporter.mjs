@@ -88,6 +88,7 @@ export function formatVerbose(decision) {
     const L = o.lenses[lens];
     lines.push(`   ${lens} (${L.score}): ${L.reasons.join(' ')}`);
   }
+  if (decision.ivRankSource) lines.push(`   IV rank source: ${decision.ivRankSource}`);
   for (const note of o.notes) lines.push(`   note: ${note}`);
   if (decision.action === 'NO_TRADE') lines.push(`   => NO TRADE: ${decision.reason}`);
   else lines.push(`   => TRADE: ${decision.structure.reason} [${decision.risk.contracts}x]`);
