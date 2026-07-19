@@ -164,6 +164,26 @@ When present it overrides/supplies `earnings.nextDate` for live providers.
 > (`/v3/reference/short-interest`) varies by Polygon plan; the code is null-safe
 > if your plan doesn't include it, and the positioning lens degrades gracefully.
 
+### Backfill: real IV rank on day one
+
+To skip the warm-up, seed the IV-history store with real historical IV before the
+first run:
+
+```bash
+export POLYGON_API_KEY=your_key
+npm run engine:backfill                       # core universe, ~1y, weekly samples
+node engine/backfill-iv.mjs --symbols=AMD,MU,NVDA --weekly=5 --lookback=365
+```
+
+Polygon has no historical-IV series, so the script reconstructs it: for each past
+sampling date it pulls the near-ATM monthly option's daily close (option
+aggregates) and **inverts Black-Scholes** to recover that day's IV
+(`engine/backfill-iv.mjs`). Weekly sampling over a year yields ~52 points per
+symbol — above the `minSamples` floor — so IV rank reads `iv-store` immediately.
+It's idempotent (the store dedupes by date) and only writes the IV-history file.
+Strikes are rounded to standard increments and ATM-IV is insensitive to being off
+by one strike, so the reconstruction is a faithful approximation.
+
 ### Adding yet another vendor (Tradier / broker)
 
 The engine only ever sees the snapshot documented at the top of

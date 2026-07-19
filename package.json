@@ -10,7 +10,8 @@
     "engine:verbose": "node engine/cli.mjs --verbose",
     "engine:reset": "node engine/cli.mjs --reset --verbose",
     "engine:live": "node engine/cli.mjs --live --verbose",
-    "engine:polygon": "node engine/cli.mjs --provider=polygon --verbose"
+    "engine:polygon": "node engine/cli.mjs --provider=polygon --verbose",
+    "engine:backfill": "node engine/backfill-iv.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
