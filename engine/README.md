@@ -13,7 +13,7 @@ including "no trade" — is explained with the numbers behind it.
 ## Pipeline
 
 ```
-Universe -> Data -> [Valuation | Technical | Positioning]
+Universe (+ screener) -> Data -> [Valuation | Technical | Positioning]
          -> Opportunity engine -> Risk engine -> Strategy selector
          -> Execution (paper) -> Ledger -> Reporter (Telegram/console)
 ```
@@ -21,6 +21,7 @@ Universe -> Data -> [Valuation | Technical | Positioning]
 | Stage | Module | Responsibility |
 |-------|--------|----------------|
 | Universe & config | `config.mjs` | Symbols, thresholds, risk limits, sector map |
+| Screener (discovery) | `screener.mjs` | Finds & ranks NEW candidates beyond the fixed universe; dormant on the mock feed (needs live data) |
 | Data collection | `data/provider.mjs`, `data/mockProvider.mjs`, `data/fixtures.mjs` | Normalised per-symbol snapshot (price/volume, fundamentals, short interest, option chain, earnings, IV) |
 | Valuation lens | `analysis/valuation.mjs` | Cheap/expensive from P/S, growth, cash, leverage |
 | Technical lens | `analysis/technical.mjs` | 50/200 DMA, trend, Fibonacci retracement, pullback-to-support |
@@ -67,6 +68,23 @@ npm run engine
 
 With no token/chat configured the report simply prints to the console, so the
 engine is fully usable with zero secrets.
+
+## Candidate discovery (screener)
+
+The engine analyses the fixed universe **plus any watchlist** you pass
+(`config.universe`, or `--symbols=NVDA,SOFI,PLTR`). On top of that, a **screener**
+(`screener.mjs`) can discover *new* names automatically: it scores a broad
+candidate list with the same lenses used to trade (elevated IV rank, supportive
+short interest / positioning, reasonable valuation, constructive technicals — and
+never inside an earnings blackout) and promotes the top `maxNewCandidates` that
+clear `minScreenScore` into the run.
+
+The screener is **dormant by design** until a live data provider is wired,
+because scanning a broad market list needs a real feed — the mock provider
+serves offline fixtures only. A live provider opts in by exposing
+`supportsDiscovery = true` and `listCandidates()` (see `data/provider.mjs`).
+Until then, the report simply prints `discovery: dormant (...)` and analyses the
+explicit universe. Tune it under `screener` in `config.mjs`.
 
 ## Swapping in live data
 

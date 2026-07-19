@@ -78,6 +78,16 @@ export const CONFIG = {
     // When token/chat are absent the reporter prints to the console instead.
   },
 
+  // ── Screener (candidate discovery) ───────────────────────────────────────────
+  // Finds NEW names beyond the fixed universe and promotes the best into the run.
+  // Dormant unless the data provider supports discovery (mock does not), because
+  // scanning a broad market list needs a live feed. See engine/screener.mjs.
+  screener: {
+    enabled: true, // gate; still dormant unless the provider supports discovery
+    maxNewCandidates: 5, // promote at most N fresh names per run
+    minScreenScore: 45, // composite floor a candidate must clear to be promoted
+  },
+
   // ── Data provider ────────────────────────────────────────────────────────────
   dataProvider: process.env.ENGINE_DATA_PROVIDER || 'mock', // 'mock' | 'live'
 

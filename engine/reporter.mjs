@@ -9,6 +9,7 @@ export function formatRunReport(report) {
   lines.push(`OPTIONS ENGINE — paper run`);
   lines.push(`as of ${report.asOf} · provider: ${report.provider}`);
   lines.push(`universe: ${report.universe.join(' ')}`);
+  lines.push(formatDiscovery(report.screener));
   lines.push('');
 
   if (report.trades.length) {
@@ -40,6 +41,14 @@ export function formatRunReport(report) {
   }
 
   return lines.join('\n');
+}
+
+function formatDiscovery(screen) {
+  if (!screen) return 'discovery: n/a';
+  if (screen.dormant) return `discovery: dormant (${screen.reason})`;
+  if (!screen.promoted.length) return `discovery: scanned ${screen.considered} candidates — none cleared the screen`;
+  const names = screen.promoted.map((p) => `${p.symbol}(${p.score})`).join(' ');
+  return `discovery: promoted ${screen.promoted.length} of ${screen.considered} — ${names}`;
 }
 
 function formatTrade(t) {

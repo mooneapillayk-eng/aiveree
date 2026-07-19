@@ -18,6 +18,11 @@
 //   }
 // where opt = { strike, bid, ask, iv, openInterest, volume, delta }
 // (delta is signed: calls positive, puts negative)
+//
+// Optional discovery interface (used by the screener to find NEW candidates):
+//   provider.supportsDiscovery: boolean          // false => screener stays dormant
+//   provider.listCandidates(): Promise<string[]> // broad ticker list to screen
+// The mock provider does not implement discovery (offline fixtures only).
 
 import { MockProvider } from './mockProvider.mjs';
 

@@ -5,6 +5,7 @@
 // starting ledger, it produces the same decisions.
 
 import { createProvider } from './data/provider.mjs';
+import { screenUniverse } from './screener.mjs';
 import { evaluateOpportunity } from './opportunity.mjs';
 import { selectStrategy } from './strategy.mjs';
 import { assessRisk } from './risk.mjs';
@@ -13,12 +14,18 @@ import { formatRunReport, formatVerbose, deliver } from './reporter.mjs';
 
 export async function runCycle(config, { symbols, verbose = false, notify = true, persist = true, portfolio } = {}) {
   const provider = createProvider(config);
-  const universe = symbols && symbols.length ? symbols : config.universe;
+  const baseUniverse = symbols && symbols.length ? symbols : config.universe;
+
+  // Discovery: promote fresh candidates into the run (dormant on the mock feed).
+  const screen = await screenUniverse(config, provider, { baseUniverse });
+  const universe = screen.universe;
 
   const report = {
     asOf: provider.asOf || null,
     provider: provider.name,
+    baseUniverse,
     universe,
+    screener: screen,
     trades: [],
     noTrades: [],
     reconciliation: [],
