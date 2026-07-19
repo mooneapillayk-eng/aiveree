@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "engine": "node engine/cli.mjs",
+    "engine:verbose": "node engine/cli.mjs --verbose",
+    "engine:reset": "node engine/cli.mjs --reset --verbose"
   },
   "dependencies": {
     "react": "^18.2.0",

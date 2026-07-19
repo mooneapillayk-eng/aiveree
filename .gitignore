@@ -7,3 +7,6 @@ dist/
 
 # Local Netlify folder
 .netlify
+
+# Options engine paper-trading ledger (local state, not source)
+engine/state/
