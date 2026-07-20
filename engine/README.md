@@ -28,7 +28,7 @@ Universe (+ screener) -> Data -> [Valuation | Technical | Positioning]
 | Technical lens | `analysis/technical.mjs` | 50/200 DMA, trend, Fibonacci retracement, pullback-to-support |
 | Positioning lens | `analysis/positioning.mjs` | Short interest, put/call OI, IV rank |
 | Opportunity engine | `opportunity.mjs` | Fuses the three lenses -> bias, conviction, intent; hard event gate (earnings blackout, IV floor) |
-| Position management | `manage.mjs` | Exits open positions before entries: profit target, stop, DTE cutoff, and expiration settlement (assignment / called-away) |
+| Position management | `manage.mjs` | Exits open positions before entries: profit target, stop, DTE cutoff, **roll-for-credit**, and expiration settlement (assignment / called-away) |
 | Risk engine | `risk.mjs` | Position sizing, per-name & portfolio exposure caps, correlation cap, concurrency, **veto power** |
 | Strategy selector | `strategy.mjs` | Cash-secured put / put credit spread / covered call / **no trade** + concrete strikes & expiry |
 | Execution | `execution.mjs` | Limit order, deterministic fill model, reconciliation |
@@ -96,7 +96,7 @@ model value (spot + IV + time), then:
 
 - **Profit target** — buy-to-close once `profitTargetPct` of the credit is captured (default 50%).
 - **Stop loss** — close once the loss reaches `stopLossMultiple` × credit (default 2×).
-- **DTE exit** — close at `dteExit` days to expiry (default 21) to sidestep late-cycle gamma.
+- **DTE exit / roll** — at `dteExit` days to expiry (default 21), **roll** the position out in time when rolling is enabled and it nets a credit (close the near leg + open a same-structure, further-dated one); otherwise just close. Rolling for a net credit is a core premium-selling discipline, so a roll that would cost a debit falls back to a plain close (`management.roll`).
 - **Expiration settlement** — intrinsics settle, including **assignment** (a cash-secured put finishing ITM puts 100 shares/contract to you) and **shares called away** (an ITM covered call). Put spreads settle to their bounded net intrinsic.
 
 Realised P&L is booked to the ledger (`realizedPnl`) and shown in the report; the
@@ -235,7 +235,8 @@ The engine only ever sees the snapshot documented at the top of
 - The **fill model is a simplification** (mid when tight, conservative when wide;
   no partial fills / slippage curve). Open positions are **marked to a
   Black-Scholes model value** for management, not to a live close quote.
-- Management **closes and settles** positions but does not **roll** them yet
-  (a rolled position = close + a fresh entry the next cycle).
+- Rolls are executed as a **close + a fresh further-dated open in the same
+  cycle**, only for a net credit; defensive rolls that would require a debit fall
+  back to a plain close.
 - Mock mode is deterministic and illustrative — good for tests and demos, not a
   market forecast.

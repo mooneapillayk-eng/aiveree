@@ -45,6 +45,12 @@ export const CONFIG = {
     stopLossMultiple: 2.0, // close if the loss reaches 2x the credit received
     dteExit: 21, // close at 21 DTE to sidestep late-cycle gamma risk
     riskFreeRate: 0.04, // used to mark open options to model value
+    // Rolling: at the DTE cutoff, prefer rolling out in time over closing — but
+    // only for a net credit (close the near leg + open a further-dated one).
+    roll: {
+      enabled: true,
+      minNetCreditTotal: 0, // require net credit >= this to roll; else just close
+    },
   },
 
   // ── Liquidity gates (per option leg) ─────────────────────────────────────────

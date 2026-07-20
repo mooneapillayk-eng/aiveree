@@ -29,8 +29,24 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
   const ivStore = config.ivStore?.enabled && provider.usesIvStore ? new IvStore(config) : null;
   const earningsCal = provider.usesEarningsOverride ? loadEarningsCalendar(config) : {};
 
+  const report = {
+    asOf: provider.asOf || null,
+    provider: provider.name,
+    baseUniverse,
+    universe,
+    screener: screen,
+    exits: [],
+    trades: [],
+    noTrades: [],
+    reconciliation: [],
+    caps: {
+      portfolio: config.risk.maxPortfolioNotionalPct,
+      perName: config.risk.maxNotionalPerNamePct,
+    },
+    account: null,
+  };
+
   // ── Manage OPEN positions first, so freed capital is available for entries ──
-  const exits = [];
   if (config.management?.enabled) {
     const heldSymbols = [...new Set(portfolio.openPositions().map((p) => p.symbol))];
     const snaps = {};
@@ -46,27 +62,27 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
       if (!snap) continue;
       const exit = decideExit(pos, snap, config);
       if (exit.action === 'hold') continue;
-      portfolio.applyExit(pos, exit);
-      exits.push({ symbol: pos.symbol, type: pos.type, contracts: pos.contracts, ...exit });
+      portfolio.applyExit(pos, exit); // closes/settles the existing position
+      const rec = { symbol: pos.symbol, type: pos.type, contracts: pos.contracts, ...exit };
+
+      // A roll also OPENS the further-dated replacement via the normal fill path.
+      if (exit.action === 'roll' && exit.newStructure) {
+        const order = buildLimitOrder(exit.newStructure, pos.contracts, config);
+        const fill = simulateFill(order, exit.newStructure, config);
+        if (fill.status === 'filled') {
+          fill.id = portfolio.nextId('ORD');
+          portfolio.state.orders.push(fill);
+          const posId = portfolio.openPosition({ structure: exit.newStructure, contracts: pos.contracts, order: fill });
+          rec.rolledToId = posId;
+          const rolled = portfolio.state.positions.find((p) => p.id === posId);
+          report.reconciliation.push({ symbol: pos.symbol, ...reconcile(fill, rolled) });
+        } else {
+          rec.rollFilled = false;
+        }
+      }
+      report.exits.push(rec);
     }
   }
-
-  const report = {
-    asOf: provider.asOf || null,
-    provider: provider.name,
-    baseUniverse,
-    universe,
-    screener: screen,
-    exits,
-    trades: [],
-    noTrades: [],
-    reconciliation: [],
-    caps: {
-      portfolio: config.risk.maxPortfolioNotionalPct,
-      perName: config.risk.maxNotionalPerNamePct,
-    },
-    account: null,
-  };
 
   const startingCash = portfolio.cash;
   let creditThisRun = 0;

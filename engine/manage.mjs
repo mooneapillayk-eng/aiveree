@@ -12,6 +12,8 @@
 
 import { bsPrice } from './backfill-iv.mjs';
 import { atmIvFromSnapshot } from './ivstore.mjs';
+import { pickExpiration, pickPutByDelta, pickCallByDelta, isLiquid } from './strategy.mjs';
+import { mid } from './data/provider.mjs';
 
 // Mark a position to model value. Returns the net debit to close (costToClose),
 // the mark P&L (credit already received minus that debit), and days to expiry.
@@ -57,9 +59,97 @@ export function decideExit(position, snapshot, config) {
     return closeEarly(position, mark, asOf, `stop loss ${m.stopLossMultiple}x credit`);
   }
   if (mark.dte <= m.dteExit) {
+    // Prefer rolling out in time — but only if it nets a credit.
+    if (m.roll?.enabled) {
+      const roll = buildRoll(position, snapshot, config, mark);
+      if (roll && roll.netCredit >= (m.roll.minNetCreditTotal ?? 0)) {
+        return {
+          action: 'roll',
+          status: 'rolled',
+          reason: `roll to ${roll.newStructure.expiry} for net credit $${roll.netCredit}`,
+          asOf,
+          cashDelta: -mark.costToClose, // pay to close the near leg (the new leg's credit is added on open)
+          sharesDelta: 0,
+          pnl: mark.markPnl, // realised on the closed near leg
+          mark: mark.costToClose,
+          newStructure: roll.newStructure,
+          netCredit: roll.netCredit,
+        };
+      }
+    }
     return closeEarly(position, mark, asOf, `DTE exit (${mark.dte}d <= ${m.dteExit}d)`);
   }
   return { action: 'hold', mark };
+}
+
+// Build a same-structure position further out in time. Returns null if no liquid
+// further-dated contract exists. The caller enforces the net-credit rule.
+export function buildRoll(position, snapshot, config, mark) {
+  const exp = pickExpiration(snapshot, config);
+  if (!exp) return null;
+  const curDte = daysBetween(snapshot.asOf, position.expiry);
+  if (exp.dte <= curDte) return null; // must extend duration
+  const target = config.opportunity.targetDeltaShort;
+  const n = position.contracts;
+  let legs = [];
+  let creditPerShare = 0;
+  let collateralPerContract = 0;
+  let maxLossPerContract = 0;
+  let breakeven = 0;
+
+  if (position.type === 'cash_secured_put') {
+    const p = pickPutByDelta(exp, target, config);
+    if (!p) return null;
+    creditPerShare = mid(p);
+    collateralPerContract = p.strike * 100;
+    maxLossPerContract = config.risk.cspStopLossMultiple * creditPerShare * 100;
+    breakeven = p.strike - creditPerShare;
+    legs = [legView('sell', 'put', p)];
+  } else if (position.type === 'covered_call') {
+    const c = pickCallByDelta(exp, target, config);
+    if (!c) return null;
+    creditPerShare = mid(c);
+    breakeven = snapshot.price - creditPerShare;
+    legs = [legView('sell', 'call', c)];
+  } else if (position.type === 'put_spread') {
+    const p = pickPutByDelta(exp, target, config);
+    if (!p) return null;
+    const longStrike = p.strike - config.opportunity.putSpreadWidth;
+    const lp = exp.puts.find((x) => x.strike === longStrike);
+    if (!lp || !isLiquid(lp, config)) return null;
+    const width = p.strike - lp.strike;
+    creditPerShare = mid(p) - mid(lp);
+    if (creditPerShare <= 0) return null;
+    collateralPerContract = width * 100;
+    maxLossPerContract = (width - creditPerShare) * 100;
+    breakeven = p.strike - creditPerShare;
+    legs = [legView('sell', 'put', p), legView('buy', 'put', lp)];
+  } else {
+    return null;
+  }
+
+  const newCreditTotal = round2(creditPerShare * 100 * n);
+  const netCredit = round2(newCreditTotal - mark.costToClose);
+  const newStructure = {
+    type: position.type,
+    symbol: position.symbol,
+    expiry: exp.expiry,
+    dte: exp.dte,
+    legs,
+    creditPerContract: round2(creditPerShare * 100),
+    creditPerShare: round2(creditPerShare),
+    collateralPerContract: round2(collateralPerContract),
+    maxLossPerContract: round2(maxLossPerContract),
+    breakeven: round2(breakeven),
+    asOf: snapshot.asOf,
+    rolledFrom: position.id,
+    reason: `Rolled ${position.symbol} ${position.type} to ${exp.expiry}.`,
+  };
+  return { newStructure, newCreditTotal, netCredit };
+}
+
+function legView(side, right, opt) {
+  return { side, right, strike: opt.strike, price: round2(mid(opt)), bid: opt.bid, ask: opt.ask, delta: opt.delta, openInterest: opt.openInterest, volume: opt.volume, iv: opt.iv };
 }
 
 function closeEarly(position, mark, asOf, reason) {
