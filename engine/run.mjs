@@ -15,8 +15,10 @@ import { formatRunReport, formatVerbose, deliver } from './reporter.mjs';
 import { IvStore, atmIvFromSnapshot } from './ivstore.mjs';
 import { decideExit } from './manage.mjs';
 
-export async function runCycle(config, { symbols, verbose = false, notify = true, persist = true, portfolio } = {}) {
-  const provider = createProvider(config);
+export async function runCycle(config, { symbols, verbose = false, notify = true, persist = true, portfolio, providerInstance } = {}) {
+  // `providerInstance` lets a scenario/demo inject an evolving feed; otherwise
+  // the provider is built from config (mock | live | polygon).
+  const provider = providerInstance || createProvider(config);
   const baseUniverse = symbols && symbols.length ? symbols : config.universe;
 
   // Discovery: promote fresh candidates into the run (dormant on the mock feed).
