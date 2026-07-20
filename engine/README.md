@@ -28,6 +28,7 @@ Universe (+ screener) -> Data -> [Valuation | Technical | Positioning]
 | Technical lens | `analysis/technical.mjs` | 50/200 DMA, trend, Fibonacci retracement, pullback-to-support |
 | Positioning lens | `analysis/positioning.mjs` | Short interest, put/call OI, IV rank |
 | Opportunity engine | `opportunity.mjs` | Fuses the three lenses -> bias, conviction, intent; hard event gate (earnings blackout, IV floor) |
+| Position management | `manage.mjs` | Exits open positions before entries: profit target, stop, DTE cutoff, and expiration settlement (assignment / called-away) |
 | Risk engine | `risk.mjs` | Position sizing, per-name & portfolio exposure caps, correlation cap, concurrency, **veto power** |
 | Strategy selector | `strategy.mjs` | Cash-secured put / put credit spread / covered call / **no trade** + concrete strikes & expiry |
 | Execution | `execution.mjs` | Limit order, deterministic fill model, reconciliation |
@@ -86,6 +87,22 @@ serves offline fixtures only. A live provider opts in by exposing
 `supportsDiscovery = true` and `listCandidates()` (see `data/provider.mjs`).
 Until then, the report simply prints `discovery: dormant (...)` and analyses the
 explicit universe. Tune it under `screener` in `config.mjs`.
+
+## Position management (entries *and* exits)
+
+Each cycle **manages open positions before opening new ones** (`manage.mjs`), so
+freed capital is available to entries. Short premium is marked to a Black-Scholes
+model value (spot + IV + time), then:
+
+- **Profit target** — buy-to-close once `profitTargetPct` of the credit is captured (default 50%).
+- **Stop loss** — close once the loss reaches `stopLossMultiple` × credit (default 2×).
+- **DTE exit** — close at `dteExit` days to expiry (default 21) to sidestep late-cycle gamma.
+- **Expiration settlement** — intrinsics settle, including **assignment** (a cash-secured put finishing ITM puts 100 shares/contract to you) and **shares called away** (an ITM covered call). Put spreads settle to their bounded net intrinsic.
+
+Realised P&L is booked to the ledger (`realizedPnl`) and shown in the report; the
+run's `EXITS` section lists each close with its reason and P&L. Tune under
+`management` in `config.mjs`. This is still paper — closes are modelled, not sent
+to a broker.
 
 ## Live data (Yahoo Finance, no API key)
 
@@ -216,7 +233,9 @@ The engine only ever sees the snapshot documented at the top of
 - **Earnings dates** on Polygon come from the optional calendar file, not the
   vendor.
 - The **fill model is a simplification** (mid when tight, conservative when wide;
-  no partial fills / slippage curve).
-- **Open-only**: there is no position *management* loop yet (roll/close/assignment).
+  no partial fills / slippage curve). Open positions are **marked to a
+  Black-Scholes model value** for management, not to a live close quote.
+- Management **closes and settles** positions but does not **roll** them yet
+  (a rolled position = close + a fresh entry the next cycle).
 - Mock mode is deterministic and illustrative — good for tests and demos, not a
   market forecast.

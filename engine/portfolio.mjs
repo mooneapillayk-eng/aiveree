@@ -92,6 +92,28 @@ export class Portfolio {
     });
     return id;
   }
+
+  // Apply an exit decided by the management phase. `exit` is a plain object:
+  //   { status, cashDelta, sharesDelta, pnl, reason, asOf, mark }
+  // cashDelta/sharesDelta are signed; pnl is the realised option P&L booked to
+  // the running total (credit was already added to cash at open).
+  applyExit(position, exit) {
+    position.status = exit.status; // 'closed' | 'expired' | 'assigned'
+    position.exit = {
+      reason: exit.reason,
+      asOf: exit.asOf || null,
+      pnl: round2(exit.pnl || 0),
+      cashDelta: round2(exit.cashDelta || 0),
+      sharesDelta: exit.sharesDelta || 0,
+      mark: exit.mark != null ? round2(exit.mark) : null,
+    };
+    this.state.cash = round2(this.state.cash + (exit.cashDelta || 0));
+    if (exit.sharesDelta) {
+      this.state.holdings[position.symbol] = (this.state.holdings[position.symbol] || 0) + exit.sharesDelta;
+    }
+    this.state.realizedPnl = round2((this.state.realizedPnl || 0) + (exit.pnl || 0));
+    return position;
+  }
 }
 
 const round2 = (x) => Math.round(x * 100) / 100;

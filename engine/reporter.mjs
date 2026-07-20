@@ -12,6 +12,15 @@ export function formatRunReport(report) {
   lines.push(formatDiscovery(report.screener));
   lines.push('');
 
+  if (report.exits && report.exits.length) {
+    lines.push(`🔻 EXITS (${report.exits.length})`);
+    for (const e of report.exits) {
+      const pnl = `${e.pnl >= 0 ? '+' : ''}$${fmt(e.pnl)}`;
+      lines.push(`• ${e.symbol} ${label(e.type)} [${e.contracts}x] — ${e.status.toUpperCase()}: ${e.reason} (P&L ${pnl})`);
+    }
+    lines.push('');
+  }
+
   if (report.trades.length) {
     lines.push(`✅ TRADES (${report.trades.length})`);
     for (const t of report.trades) lines.push(...formatTrade(t));
@@ -30,6 +39,7 @@ export function formatRunReport(report) {
   lines.push(`— ACCOUNT —`);
   lines.push(`cash: $${fmt(a.cashAfter)}  (credit collected this run: $${fmt(a.creditThisRun)})`);
   lines.push(`open positions: ${a.openPositions}  ·  committed collateral: $${fmt(a.committedAfter)}`);
+  if (a.realizedPnl != null) lines.push(`realized P&L (lifetime): ${a.realizedPnl >= 0 ? '+' : ''}$${fmt(a.realizedPnl)}`);
   lines.push(`portfolio exposure: ${pct(a.committedAfter / a.startingCash)} of cap ${pct(report.caps.portfolio)}`);
 
   if (report.reconciliation.some((r) => !r.ok)) {

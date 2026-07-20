@@ -35,6 +35,18 @@ export const CONFIG = {
     cspStopLossMultiple: 2.5,
   },
 
+  // ── Position management (exits) ──────────────────────────────────────────────
+  // Runs before entries each cycle. Open premium is marked to a Black-Scholes
+  // model value; positions are closed on a profit target, a stop, or a DTE cutoff,
+  // and settled at expiration (including assignment / shares called away).
+  management: {
+    enabled: true,
+    profitTargetPct: 0.5, // buy-to-close once 50% of the credit is captured
+    stopLossMultiple: 2.0, // close if the loss reaches 2x the credit received
+    dteExit: 21, // close at 21 DTE to sidestep late-cycle gamma risk
+    riskFreeRate: 0.04, // used to mark open options to model value
+  },
+
   // ── Liquidity gates (per option leg) ─────────────────────────────────────────
   liquidity: {
     minOpenInterest: 250,

@@ -13,6 +13,7 @@ import { assessRisk } from './risk.mjs';
 import { buildLimitOrder, simulateFill, reconcile } from './execution.mjs';
 import { formatRunReport, formatVerbose, deliver } from './reporter.mjs';
 import { IvStore, atmIvFromSnapshot } from './ivstore.mjs';
+import { decideExit } from './manage.mjs';
 
 export async function runCycle(config, { symbols, verbose = false, notify = true, persist = true, portfolio } = {}) {
   const provider = createProvider(config);
@@ -28,12 +29,35 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
   const ivStore = config.ivStore?.enabled && provider.usesIvStore ? new IvStore(config) : null;
   const earningsCal = provider.usesEarningsOverride ? loadEarningsCalendar(config) : {};
 
+  // ── Manage OPEN positions first, so freed capital is available for entries ──
+  const exits = [];
+  if (config.management?.enabled) {
+    const heldSymbols = [...new Set(portfolio.openPositions().map((p) => p.symbol))];
+    const snaps = {};
+    for (const s of heldSymbols) {
+      try {
+        snaps[s] = await provider.fetchSnapshot(s);
+      } catch (err) {
+        console.error(`[manage] could not price ${s}: ${err.message}`);
+      }
+    }
+    for (const pos of portfolio.openPositions()) {
+      const snap = snaps[pos.symbol];
+      if (!snap) continue;
+      const exit = decideExit(pos, snap, config);
+      if (exit.action === 'hold') continue;
+      portfolio.applyExit(pos, exit);
+      exits.push({ symbol: pos.symbol, type: pos.type, contracts: pos.contracts, ...exit });
+    }
+  }
+
   const report = {
     asOf: provider.asOf || null,
     provider: provider.name,
     baseUniverse,
     universe,
     screener: screen,
+    exits,
     trades: [],
     noTrades: [],
     reconciliation: [],
@@ -132,6 +156,7 @@ export async function runCycle(config, { symbols, verbose = false, notify = true
     creditThisRun: round2(creditThisRun),
     committedAfter: portfolio.committedCollateral(),
     openPositions: portfolio.openPositions().length,
+    realizedPnl: round2(portfolio.state.realizedPnl || 0),
   };
 
   if (persist) {
