@@ -50,6 +50,7 @@ export const CONFIG = {
     roll: {
       enabled: true,
       minNetCreditTotal: 0, // require net credit >= this to roll; else just close
+      avoidEarnings: true, // never roll a position across its next earnings report
     },
   },
 

@@ -48,12 +48,21 @@ describe('buildRoll', () => {
 describe('decideExit -> roll at the DTE cutoff', () => {
   it('rolls (not closes) when the near leg still holds value and it nets a credit', () => {
     // Spot near the strike so the near-dated put isn't at a profit target.
-    const snap = { ...fixtureFor('AMD'), price: 146 };
+    // Earnings pushed far out so the roll doesn't span an earnings report.
+    const snap = { ...fixtureFor('AMD'), price: 146, earnings: { nextDate: '2026-12-01' } };
     const d = decideExit(cspPosition(), snap, CONFIG);
     expect(d.action).toBe('roll');
     expect(d.reason).toMatch(/roll to/);
     expect(d.newStructure).toBeTruthy();
     expect(d.netCredit).toBeGreaterThanOrEqual(CONFIG.management.roll.minNetCreditTotal);
+  });
+
+  it('closes instead of rolling when the roll would span an earnings report', () => {
+    // Earnings falls between now and where the roll would extend to.
+    const snap = { ...fixtureFor('AMD'), price: 146, earnings: { nextDate: '2026-08-18' } };
+    const d = decideExit(cspPosition(), snap, CONFIG);
+    expect(d.action).toBe('close');
+    expect(d.reason).toMatch(/earnings/);
   });
 
   it('closes instead of rolling when rolling is disabled', () => {
@@ -71,6 +80,7 @@ describe('rolling end-to-end (mock)', () => {
     const cfg = structuredClone(CONFIG);
     cfg.statePath = '/dev/null';
     cfg.telegram = { botToken: null, chatId: null };
+    cfg.management.roll.avoidEarnings = false; // isolate the roll mechanism (earnings guard tested separately)
     const state = {
       cash: cfg.account.startingCash,
       startingCash: cfg.account.startingCash,

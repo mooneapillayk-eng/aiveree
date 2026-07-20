@@ -96,7 +96,7 @@ model value (spot + IV + time), then:
 
 - **Profit target** — buy-to-close once `profitTargetPct` of the credit is captured (default 50%).
 - **Stop loss** — close once the loss reaches `stopLossMultiple` × credit (default 2×).
-- **DTE exit / roll** — at `dteExit` days to expiry (default 21), **roll** the position out in time when rolling is enabled and it nets a credit (close the near leg + open a same-structure, further-dated one); otherwise just close. Rolling for a net credit is a core premium-selling discipline, so a roll that would cost a debit falls back to a plain close (`management.roll`).
+- **DTE exit / roll** — at `dteExit` days to expiry (default 21), **roll** the position out in time when rolling is enabled and it nets a credit (close the near leg + open a same-structure, further-dated one); otherwise just close. Two guardrails: a roll that would cost a debit falls back to a plain close, and a roll that would extend the position **across its next earnings report** also falls back to a close (`management.roll.avoidEarnings`) — so the engine never carries a short option through an earnings print, matching the entry blackout.
 - **Expiration settlement** — intrinsics settle, including **assignment** (a cash-secured put finishing ITM puts 100 shares/contract to you) and **shares called away** (an ITM covered call). Put spreads settle to their bounded net intrinsic.
 
 Realised P&L is booked to the ledger (`realizedPnl`) and shown in the report; the

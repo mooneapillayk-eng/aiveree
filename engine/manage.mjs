@@ -63,6 +63,13 @@ export function decideExit(position, snapshot, config) {
     if (m.roll?.enabled) {
       const roll = buildRoll(position, snapshot, config, mark);
       if (roll && roll.netCredit >= (m.roll.minNetCreditTotal ?? 0)) {
+        // Don't roll a position across its next earnings report: extending the
+        // trade past an earnings date would take on exactly the event risk the
+        // entry blackout avoids. Close instead.
+        const earnings = snapshot.earnings?.nextDate;
+        if (m.roll.avoidEarnings && earnings && earnings > asOf && earnings <= roll.newStructure.expiry) {
+          return closeEarly(position, mark, asOf, `DTE exit — roll would span earnings ${earnings}; closing instead`);
+        }
         return {
           action: 'roll',
           status: 'rolled',
