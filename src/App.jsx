@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createUserProfile, createGoal, createProject, initUserState, getPendingApprovals, supabase,
-  signUpUser, signInUser, startOAuth, completeOAuthIfPresent, restoreSession, signOutUser, apiFetch } from "./supabase.js";
+  signUpUser, signInUser, startOAuth, completeOAuthIfPresent, restoreSession, signOutUser, apiFetch,
+  listMemories, editMemory, forgetMemory, memoryTimeline,
+  listProjects, createProjectRecord, updateProjectRecord, deleteProjectRecord } from "./supabase.js";
 
 // ─── BACKEND HELPERS ──────────────────────────────────────────────────────────
 async function fireEvent(eventType, userId, payload = {}, projectId = null) {
@@ -241,201 +243,197 @@ function getDomainColor(id){return DOMAINS.find(d=>d.id===id)?.color||"#5b21b6";
 function getDomainEmoji(id){return DOMAINS.find(d=>d.id===id)?.emoji||"✨";}
 
 // ─── HOMEPAGE ─────────────────────────────────────────────────────────────────
+// Direction: Aiveree is your AI Chief of Staff. The homepage is where the
+// relationship begins — an open, inviting starting point ("What are you
+// building?") with one substantial input that seeds the conversation, then a
+// calm preview of how the relationship develops over time (Continue with your
+// Chief of Staff · Aiveree noticed). It is NOT a dense command centre. Keeps
+// the existing warm Aiveree identity; purple stays a quiet accent.
 function Homepage({onStart,mobile}){
-  const live=DOMAINS.filter(d=>d.live);
-  const coming=DOMAINS.filter(d=>!d.live);
-
-  const PROOF=[
-    {q:"Had a full business plan and competitor breakdown waiting before I'd even finished my coffee.",n:"First-time founder, Manchester"},
-    {q:"She built me a warm outreach list overnight — I woke up to my first ten customers to contact.",n:"Solo founder, Bristol"},
-    {q:"The WhatsApp nudge got me back to my launch when I'd quietly let it stall.",n:"Side-hustler, London"},
-  ];
-
-  // ── ElevenLabs-style tokens: warm-white eggshell canvas, warm near-black ink,
-  // taupe surfaces, light-300 editorial display. Purple lives ONLY in the product
-  // preview visual — never as UI chrome. (Waldenburg is proprietary; Inter stands
-  // in for both display and body, matching ElevenLabs' own body face.)
   const C={canvas:"#f5f5f5",soft:"#fafafa",card:"#fff",strong:"#f0efed",ink:"#0c0a09",inkWarm:"#292524",body:"#4e4e4e",muted:"#777169",mutedSoft:"#a8a29e",line:"#e7e5e4",lineStrong:"#d6d3d1"};
+  const A="#5b21b6", AB="#f4f0fb", ABL="#e7dcfa";
   const F="'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
   const secPad=mobile?"64px 20px":"96px 52px";
+
+  const [idea,setIdea]=useState("");
+  const composerRef=useRef(null);
+  const go=()=>onStart(null,idea.trim()||undefined);
+
+  const mark=(sz)=>(
+    <div style={{width:sz,height:sz,borderRadius:sz*0.28,background:A,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*0.42,color:"#fff",fontWeight:700,fontFamily:F,flexShrink:0}}>A</div>
+  );
+  const Head=({eyebrow,title,sub,dark})=>(
+    <div style={{textAlign:"center",maxWidth:680,margin:"0 auto",marginBottom:mobile?32:48}}>
+      {eyebrow&&<p style={{fontSize:12,color:dark?"rgba(255,255,255,0.5)":C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:14,fontWeight:600}}>{eyebrow}</p>}
+      <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:dark?"#fff":C.ink,letterSpacing:mobile?"-0.6px":"-1px",lineHeight:1.12,margin:0}}>{title}</h2>
+      {sub&&<p style={{fontFamily:F,fontSize:mobile?15:16.5,color:dark?"rgba(255,255,255,0.62)":C.body,fontWeight:400,lineHeight:1.6,marginTop:14}}>{sub}</p>}
+    </div>
+  );
+
+  const STARTERS=[
+    ["Start a business","I want to start a business."],
+    ["Plan a project","Help me plan a project I'm working on."],
+    ["Work through a decision","I need to work through a decision."],
+    ["Research something","Research something for me."],
+  ];
+  const WORK=[
+    ["Starting a business","You were choosing which market to lead with.",40],
+    ["Moving house","You were comparing the two mortgage offers.",62],
+    ["A career move","You were prepping for Thursday's interview.",25],
+  ];
+  const DEVELOP=[
+    ["First session","“Tell me about your idea.”"],
+    ["After a few sessions","“I remember what you're trying to achieve.”"],
+    ["After a few weeks","“Here's what's changed, what matters now, and what I'd do next.”"],
+  ];
 
   return(
     <div style={{background:C.canvas,minHeight:"100vh",fontFamily:F,color:C.ink}}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');`}</style>
 
-      {/* ── HERO ── */}
-      <div style={{maxWidth:1100,margin:"0 auto",padding:mobile?"92px 20px 0":"128px 52px 0"}}>
-        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?40:72,alignItems:"center"}}>
+      {/* ── HERO — the invitation ── */}
+      <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"84px 20px 0":"128px 52px 0",textAlign:"center"}}>
+        <p style={{fontFamily:F,fontSize:12,fontWeight:600,letterSpacing:0.96,textTransform:"uppercase",color:C.muted,marginBottom:mobile?18:22}}>Your AI Chief of Staff</p>
+        <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,9vw,46px)":"clamp(46px,5vw,64px)",fontWeight:300,lineHeight:1.04,letterSpacing:mobile?"-1.2px":"-2px",color:C.ink,marginBottom:20}}>
+          What are you building?
+        </h1>
+        <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.6,fontWeight:400,maxWidth:600,margin:"0 auto",marginBottom:mobile?26:32}}>
+          Bring an idea, a problem or an ambition. Aiveree thinks it through with you, puts a specialist team to work on the research, drafts and plans, remembers every decision and detail — and comes back to you on WhatsApp when something needs your call.
+        </p>
 
-          {/* Left — copy */}
-          <div>
-            <div style={{display:"inline-flex",alignItems:"center",gap:7,background:C.strong,borderRadius:9999,padding:"5px 12px",marginBottom:28}}>
-              <span style={{fontFamily:F,fontSize:12,fontWeight:600,color:C.muted,letterSpacing:0.96,textTransform:"uppercase"}}>An AI team for founders</span>
-            </div>
-            <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,8.5vw,44px)":"clamp(44px,4.8vw,64px)",fontWeight:300,lineHeight:1.05,letterSpacing:mobile?"-1px":"-1.9px",color:C.ink,marginBottom:22}}>
-              Bring the idea.<br/>We'll build the business.
-            </h1>
-            <p style={{fontSize:mobile?15:17,color:C.body,lineHeight:1.6,fontWeight:400,marginBottom:14,fontFamily:F,maxWidth:460,letterSpacing:0.16}}>
-              Tell Aiveree your goal. She briefs her specialist team and they get to work — getting your business off the ground, landing customers, whatever's in the way.
-            </p>
-            <p style={{fontSize:15,color:C.muted,lineHeight:1.55,fontFamily:F,marginBottom:32,maxWidth:430}}>
-              She doesn't wait for a prompt. She knows what you're building, and she reaches out when you go quiet.
-            </p>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-              <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Tell Aiveree your goal</button>
-              <button onClick={()=>document.getElementById("video")?.scrollIntoView({behavior:"smooth"})} style={{background:"transparent",border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:mobile?"12px 22px":"13px 26px",color:C.ink,fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Watch how it works</button>
-            </div>
-            <p style={{fontSize:13,color:C.mutedSoft,marginTop:16,fontFamily:F}}>Free to start · No credit card · 5 tasks included</p>
+        {/* Composer — one substantial input that begins the conversation */}
+        <div style={{textAlign:"left",background:C.card,border:`1px solid ${C.lineStrong}`,borderRadius:20,padding:mobile?"16px 16px 12px":"20px 20px 14px",boxShadow:"0 2px 4px rgba(20,16,10,.03),0 18px 50px rgba(20,16,10,.06)",transition:"box-shadow .15s,border-color .15s"}}>
+          <textarea ref={composerRef} value={idea} onChange={e=>setIdea(e.target.value)}
+            onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();go();}}}
+            placeholder="Tell me what you're thinking about…" rows={2}
+            style={{width:"100%",border:"none",outline:"none",resize:"none",background:"transparent",fontFamily:F,fontSize:mobile?16:17,lineHeight:1.5,color:C.ink,minHeight:56,padding:0}}/>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
+            <button onClick={()=>onStart(null)} style={{display:"inline-flex",alignItems:"center",gap:6,border:`1px solid ${C.line}`,background:C.card,color:C.body,borderRadius:9999,padding:"7px 13px",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:F}}>+ Add context</button>
+            <div style={{flex:1}}/>
+            <button aria-label="Voice" style={{width:38,height:38,borderRadius:9999,border:`1px solid ${C.line}`,background:C.card,color:C.body,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:15}}>🎙</button>
+            <button onClick={go} aria-label="Send" style={{width:38,height:38,borderRadius:9999,border:"none",background:C.inkWarm,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:17,fontFamily:F}}>→</button>
           </div>
-
-          {/* Right — product preview */}
-          {!mobile&&(
-            <div style={{position:"relative"}}>
-              <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:24,padding:20,boxShadow:"0 24px 80px rgba(0,0,0,0.08)",overflow:"hidden"}}>
-                {/* Mini dashboard header */}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16,paddingBottom:12,borderBottom:"1px solid #f5f5f5"}}>
-                  <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:700,fontFamily:"'Poppins',sans-serif"}}>Ai</div>
-                  <div>
-                    <div style={{fontFamily:"'Poppins',sans-serif",fontWeight:600,fontSize:12,color:"#000"}}>Aiveree</div>
-                    <div style={{fontSize:9,color:"#22c55e",display:"flex",alignItems:"center",gap:3}}><div style={{width:4,height:4,borderRadius:2,background:"#22c55e"}}/>Online · Business workspace</div>
-                  </div>
-                  <div style={{marginLeft:"auto",fontSize:9,color:"#bbb",background:"#f9f9f9",padding:"2px 8px",borderRadius:10,fontFamily:"Inter,sans-serif"}}>5 tasks left</div>
-                </div>
-                {/* Aiveree message */}
-                <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  <div style={{width:24,height:24,borderRadius:6,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>Ai</div>
-                  <div style={{background:"#f7f7f7",borderRadius:"12px 12px 12px 2px",padding:"10px 12px",fontSize:12,color:"#333",lineHeight:1.65,fontFamily:"Inter,sans-serif",maxWidth:260}}>
-                    Morning. My team's been building since you signed up. <strong style={{color:"#000"}}>Your business plan is drafted</strong>, 3 competitors mapped, and your launch checklist is ready. Want me to walk you through it?
-                  </div>
-                </div>
-                {/* Task cards */}
-                {[
-                  {icon:"📋",label:"Business plan",status:"Ready for review",color:"#5b21b6",note:"Financials + strategy drafted"},
-                  {icon:"📊",label:"Market research",status:"Complete",color:"#22c55e",note:"3 competitors mapped overnight"},
-                  {icon:"🚀",label:"Launch checklist",status:"In progress",color:"#f59e0b",note:"Registration + branding next"},
-                ].map((t,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:"#fafafa",borderRadius:9,marginBottom:6,border:"1px solid #f0f0f0"}}>
-                    <span style={{fontSize:14}}>{t.icon}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:11,color:"#000"}}>{t.label}</div>
-                      <div style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:10,color:"#888"}}>{t.note}</div>
-                    </div>
-                    <div style={{fontSize:9,color:t.color,background:`${t.color}12`,padding:"2px 7px",borderRadius:10,fontFamily:"Inter,sans-serif",fontWeight:500,whiteSpace:"nowrap"}}>{t.status}</div>
-                  </div>
-                ))}
-                {/* WhatsApp preview */}
-                <div style={{marginTop:10,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:9,padding:"8px 10px",display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{fontSize:12}}>💬</span>
-                  <div>
-                    <div style={{fontFamily:"Inter,sans-serif",fontSize:9,color:"#16a34a",fontWeight:600,marginBottom:2}}>WhatsApp · Just now</div>
-                    <div style={{fontFamily:"Inter,sans-serif",fontSize:10,color:"#555",lineHeight:1.5}}>"A competitor just changed their pricing — I've drafted how you respond. Worth a look when you're free."</div>
-                  </div>
-                </div>
-              </div>
-              {/* Floating badge */}
-              <div style={{position:"absolute",top:-14,right:-14,background:"#5b21b6",color:"#fff",borderRadius:20,padding:"5px 12px",fontSize:10,fontFamily:"'Poppins',sans-serif",fontWeight:600,letterSpacing:0.5,boxShadow:"0 8px 24px rgba(91,33,182,0.3)"}}>Working while you sleep ✦</div>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* ── SOCIAL PROOF ── */}
-      <div style={{maxWidth:1000,margin:"0 auto",padding:mobile?"64px 20px 0":"104px 52px 0"}}>
-        <p style={{textAlign:"center",fontSize:12,color:C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:44,fontWeight:600}}>What people are saying</p>
-        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?36:48}}>
-          {PROOF.map((p,i)=>(
-            <div key={i}>
-              <p style={{fontFamily:F,fontSize:mobile?17:19,color:C.ink,lineHeight:1.5,marginBottom:16,fontWeight:300,letterSpacing:-0.2}}>"{p.q}"</p>
-              <p style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>{p.n}</p>
-            </div>
+        {/* Subtle starters — pre-fill the input, not navigation */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginTop:16}}>
+          {STARTERS.map((s,i)=>(
+            <button key={i} onClick={()=>{setIdea(s[1]);composerRef.current?.focus();}}
+              style={{fontFamily:F,fontSize:13,fontWeight:500,color:C.body,background:"transparent",border:`1px solid ${C.line}`,borderRadius:9999,padding:"8px 15px",cursor:"pointer"}}>{s[0]}</button>
           ))}
         </div>
+        <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:18}}>Free to start · No credit card · Works over web, voice and WhatsApp</p>
       </div>
 
-      {/* ── VIDEO SECTION ── */}
-      <div id="video" style={{maxWidth:1100,margin:"0 auto",padding:secPad}}>
-        <div style={{textAlign:"center",marginBottom:40}}>
-          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:40,color:C.ink,marginBottom:10,letterSpacing:mobile?"-0.5px":"-1px"}}>See Aiveree in action</h2>
-          <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400,maxWidth:420,margin:"0 auto"}}>60 seconds. Your goal in. Results out. A team that keeps working.</p>
-        </div>
-        <div style={{background:C.ink,borderRadius:24,overflow:"hidden",aspectRatio:"16/9",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.10)"}}>
-          {/* Placeholder — replace src with YouTube/Vimeo embed URL when video is ready */}
-          <div style={{textAlign:"center",padding:40}}>
-            <div style={{width:64,height:64,borderRadius:32,background:"rgba(255,255,255,0.1)",border:"2px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",cursor:"pointer",transition:"all .2s"}}
-              onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.2)"}
-              onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}>
-              <div style={{width:0,height:0,borderTop:"12px solid transparent",borderBottom:"12px solid transparent",borderLeft:"20px solid white",marginLeft:4}}/>
+      {/* ── TEAM + WHATSAPP (upfront differentiator) ── */}
+      <div style={{background:C.strong,padding:secPad,marginTop:mobile?24:40}}>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head eyebrow="Not just a chat" title="You bring the goal. Aiveree's team does the work." sub="Aiveree briefs a specialist team on what you're building. They work in the background — research, drafts, plans — and she reaches you on WhatsApp when there's progress, or a decision that needs you." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?12:16,alignItems:"start"}}>
+            {/* Team working */}
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:6,paddingBottom:13,borderBottom:`1px solid ${C.line}`}}>
+                {mark(26)}
+                <div style={{fontFamily:F,fontWeight:600,fontSize:13,color:C.ink}}>Aiveree's team</div>
+                <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontFamily:F,fontSize:11,color:"#16a34a"}}><span style={{width:5,height:5,borderRadius:9999,background:"#16a34a",display:"inline-block"}}/>Working</div>
+              </div>
+              {[
+                ["Market research","3 competitors mapped","done"],
+                ["First plan","drafted and ready to read","done"],
+                ["Options","comparison being prepared","working"],
+              ].map((r,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 0",borderBottom:i<2?`1px solid ${C.line}`:"none"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:F,fontSize:13.5,fontWeight:500,color:C.ink}}>{r[0]}</div>
+                    <div style={{fontFamily:F,fontSize:12,color:C.mutedSoft}}>{r[1]}</div>
+                  </div>
+                  {r[2]==="done"
+                    ?<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:"#16a34a",background:"#f0fdf4",border:"1px solid #c7ecd0",borderRadius:9999,padding:"3px 10px"}}>Done</span>
+                    :<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:C.muted,background:C.soft,border:`1px solid ${C.line}`,borderRadius:9999,padding:"3px 10px"}}>Working</span>}
+                </div>
+              ))}
             </div>
-            <p style={{fontFamily:"'Poppins',sans-serif",fontSize:14,color:"rgba(255,255,255,0.6)",fontWeight:500}}>Video coming soon</p>
-            <p style={{fontFamily:"Inter,sans-serif",fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:4}}>Add your YouTube/Vimeo embed URL here once ready</p>
+            {/* WhatsApp */}
+            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:14}}>
+                <div style={{width:28,height:28,borderRadius:8,background:"#f0fdf4",border:"1px solid #bbf7d0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>💬</div>
+                <div style={{fontFamily:F,fontSize:12,fontWeight:600,color:"#16a34a"}}>WhatsApp · Aiveree</div>
+                <div style={{marginLeft:"auto",fontFamily:F,fontSize:11,color:C.mutedSoft}}>now</div>
+              </div>
+              <div style={{background:"#f0fdf4",border:"1px solid #d6f0dd",borderRadius:"4px 14px 14px 14px",padding:"12px 14px",fontFamily:F,fontSize:mobile?14:14.5,color:C.ink,lineHeight:1.55}}>
+                Morning 👋 The team's mapped your market and drafted a first plan. One thing needs you — which segment to lead with? I've laid out the trade-offs.
+              </div>
+              <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:12,lineHeight:1.5}}>She reaches you where you are — and you stay in control of every call.</p>
+            </div>
           </div>
-          {/* Background gradient */}
-          <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 30% 50%, rgba(91,33,182,0.3) 0%, transparent 60%), radial-gradient(ellipse at 70% 50%, rgba(167,139,250,0.15) 0%, transparent 60%)",pointerEvents:"none"}}/>
-        </div>
-        <div style={{textAlign:"center",marginTop:16}}>
-          <button onClick={()=>onStart(null)} style={{background:C.inkWarm,border:"none",borderRadius:9999,padding:"12px 26px",color:"#fff",fontWeight:500,cursor:"pointer",fontSize:15,fontFamily:F}}>Start for free</button>
         </div>
       </div>
 
-      {/* ── WHAT ARE YOU WORKING TOWARD ── */}
+      {/* ── CONTINUE WITH YOUR CHIEF OF STAFF (illustrative preview) ── */}
       <div style={{padding:secPad}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>What are you working toward?</h2>
-            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>Tell Aiveree and she'll build a team around it.</p>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
-            {live.map(d=>(
-              <button key={d.id} onClick={()=>onStart(d.id)}
-                style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",cursor:"pointer",textAlign:"left",fontFamily:F,transition:"border-color .15s ease, background .15s ease"}}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor=C.lineStrong;e.currentTarget.style.background=C.soft;}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor=C.line;e.currentTarget.style.background=C.card;}}>
-                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.ink,marginBottom:8}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:mobile?13:15,color:C.muted,lineHeight:1.5,fontFamily:F}}>{d.desc}</div>
-              </button>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="Whatever you bring — a business, a move, a career step, a decision — Aiveree keeps the thread and picks up exactly where you left off." />
+          <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:14}}>Continue with your Chief of Staff</p>
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
+            {WORK.map((w,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px":"20px 20px",display:"flex",flexDirection:"column",minHeight:160}}>
+                <div style={{fontFamily:F,fontSize:15,fontWeight:600,color:C.ink,marginBottom:7,letterSpacing:-0.2}}>{w[0]}</div>
+                <div style={{fontFamily:F,fontSize:13,color:C.body,lineHeight:1.5,marginBottom:16}}>{w[1]}</div>
+                <div style={{marginTop:"auto"}}>
+                  <div style={{height:4,borderRadius:9999,background:C.line,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${w[2]}%`,borderRadius:9999,background:A}}/></div>
+                  <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:A}}>Continue →</span>
+                </div>
+              </div>
             ))}
           </div>
-          <div style={{marginTop:mobile?10:16,display:"grid",gridTemplateColumns:mobile?"1fr 1fr":"repeat(4,1fr)",gap:mobile?10:16}}>
-            {coming.map(d=>(
-              <div key={d.id} style={{background:"transparent",border:`1px dashed ${C.line}`,borderRadius:16,padding:mobile?"18px 16px":"24px 22px",textAlign:"left"}}>
-                <div style={{fontFamily:F,fontWeight:500,fontSize:mobile?15:16,color:C.mutedSoft,marginBottom:8}}>{d.label}</div>
-                <div style={{fontWeight:400,fontSize:13,color:C.mutedSoft,fontFamily:F}}>Coming soon</div>
+
+          {/* Aiveree noticed */}
+          <div style={{marginTop:20,background:`linear-gradient(180deg,${AB},#fff)`,border:`1px solid ${ABL}`,borderRadius:16,padding:mobile?"18px":"22px 24px",display:"flex",gap:14,alignItems:"flex-start"}}>
+            <div style={{width:30,height:30,borderRadius:9,background:C.card,border:`1px solid ${ABL}`,display:"flex",alignItems:"center",justifyContent:"center",color:A,flexShrink:0,fontSize:15}}>✦</div>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:A,opacity:0.85,marginBottom:7}}>Aiveree noticed</div>
+              <p style={{fontFamily:F,fontSize:mobile?14.5:15,color:C.ink,lineHeight:1.55,margin:0,marginBottom:14,maxWidth:"62ch"}}>Your <strong style={{fontWeight:600}}>new business</strong> has moved from exploring the idea to shaping the plan. The next decision looks like which market to lead with.</p>
+              <div style={{display:"flex",gap:9}}>
+                <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:"#fff",background:A,borderRadius:9999,padding:"8px 16px"}}>Discuss</span>
+                <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:C.body,border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:"8px 16px"}}>Dismiss</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── A RELATIONSHIP THAT DEVELOPS ── */}
+      <div style={{background:C.strong,padding:secPad}}>
+        <div style={{maxWidth:1000,margin:"0 auto"}}>
+          <Head title="A relationship that develops." sub="Aiveree isn't a tool you configure. It's a working understanding of what you're trying to achieve — one that gets sharper over time." />
+          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
+            {DEVELOP.map((d,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"24px 24px"}}>
+                <div style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:12}}>{d[0]}</div>
+                <div style={{fontFamily:F,fontSize:mobile?16:18,fontWeight:400,color:C.ink,lineHeight:1.45,letterSpacing:-0.2}}>{d[1]}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── HOW IT WORKS ── */}
-      <div id="how" style={{background:C.strong,padding:secPad}}>
-        <div style={{maxWidth:1100,margin:"0 auto"}}>
-          <div style={{textAlign:"center",marginBottom:48}}>
-            <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:C.ink,marginBottom:12,letterSpacing:mobile?"-0.5px":"-0.8px"}}>How Aiveree works</h2>
-            <p style={{fontFamily:F,fontSize:15,color:C.muted,fontWeight:400}}>She's not a chatbot. She has a team.</p>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr 1fr",gap:mobile?16:24}}>
-            {[
-              {n:"01",t:"Tell Aiveree your goal",d:"Have a quick conversation. Tell us what you're building, where you're headed, or what's in your way. No forms. Just talk."},
-              {n:"02",t:"She briefs her team",d:"Aiveree configures a specialist team around your exact situation. She briefs them, manages them, and holds them accountable. You do nothing."},
-              {n:"03",t:"Results come to you",d:"Business plans built. Markets mapped. First customers found. She reaches out via WhatsApp when something needs your attention. Real work. Done."},
-            ].map((s,i)=>(
-              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"24px":"32px 30px",position:"relative"}}>
-                <div style={{fontFamily:F,fontWeight:300,fontSize:40,color:C.mutedSoft,lineHeight:1,marginBottom:20,letterSpacing:-1}}>{s.n}</div>
-                <h3 style={{fontFamily:F,fontWeight:500,fontSize:18,color:C.ink,marginBottom:8}}>{s.t}</h3>
-                <p style={{fontFamily:F,fontWeight:400,fontSize:15,color:C.body,lineHeight:1.55,margin:0}}>{s.d}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── CLOSING ── */}
+      <div style={{background:C.ink,padding:mobile?"64px 20px":"104px 52px"}}>
+        <div style={{maxWidth:720,margin:"0 auto",textAlign:"center"}}>
+          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?28:42,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.4px",lineHeight:1.08,marginBottom:16}}>Bring an idea. Aiveree helps you move it forward.</h2>
+          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Think it through, turn it into a plan, and make progress — with a Chief of Staff that remembers what matters to you.</p>
+          <button onClick={()=>onStart(null)} style={{background:"#fff",border:"none",borderRadius:9999,padding:mobile?"14px 28px":"15px 34px",color:C.ink,fontWeight:600,cursor:"pointer",fontSize:mobile?15:16,fontFamily:F}}>Start with Aiveree</button>
+          <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:16}}>Free to start · No credit card · Private by default</p>
         </div>
       </div>
 
       {/* ── FOOTER ── */}
-      <div style={{borderTop:`1px solid ${C.line}`,padding:mobile?"24px 20px":"28px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:1100,margin:"0 auto",flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <div style={{width:24,height:24,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:10,color:"#fff",fontFamily:F}}>Ai</div>
+      <div style={{borderTop:`1px solid ${C.line}`,padding:mobile?"24px 20px":"28px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:1120,margin:"0 auto",flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {mark(24)}
           <span style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>Aiveree</span>
         </div>
-        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · For founders and entrepreneurs</span>
+        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · Your AI Chief of Staff</span>
       </div>
     </div>
   );
@@ -518,7 +516,7 @@ function AuthScreen({onAuth,prefilledIntel,mobile}){
 }
 
 // ─── ONBOARDING ───────────────────────────────────────────────────────────────
-function Onboarding({selectedDomain,onComplete,mobile}){
+function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
   const domInfo=DOMAINS.find(d=>d.id===selectedDomain);
   const initMsg=selectedDomain
     ?`Hey — I'm Aiveree. You want to work on ${domInfo?.label?.toLowerCase()}. Tell me more about your specific situation — what are you starting from and what does success look like for you?`
@@ -555,6 +553,12 @@ function Onboarding({selectedDomain,onComplete,mobile}){
   useEffect(()=>{
     speak(initMsg);
   },[]);
+
+  // If the visitor typed an idea on the homepage, seed the conversation with it.
+  const seededRef=useRef(false);
+  useEffect(()=>{
+    if(initialIdea&&!seededRef.current){seededRef.current=true;send(initialIdea);}
+  },[initialIdea]);// eslint-disable-line
 
   useEffect(()=>{ref.current?.scrollIntoView({behavior:"smooth"})},[msgs]);
 
@@ -1318,6 +1322,155 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
 }
 
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
+// ─── MEMORY CENTRE ────────────────────────────────────────────────────────────
+// The real, wired "what Aiveree remembers" surface: view/edit/forget memories,
+// a chronological timeline, and first-class projects. Everything here hits the
+// live memory/projects functions — no illustrative placeholders.
+function MemoryCentre({mobile}){
+  const [tab,setTab]=useState("memory");
+  const [mem,setMem]=useState(null);
+  const [tl,setTl]=useState(null);
+  const [projects,setProjects]=useState(null);
+  const [editing,setEditing]=useState(null);
+  const [draft,setDraft]=useState("");
+  const [np,setNp]=useState({name:"",description:""});
+  const [busy,setBusy]=useState(false);
+
+  useEffect(()=>{
+    if(tab==="memory"&&mem===null) listMemories().then(setMem);
+    if(tab==="timeline"&&tl===null) memoryTimeline().then(setTl);
+    if(tab==="projects"&&projects===null) listProjects().then(setProjects);
+  },[tab]);// eslint-disable-line
+
+  const fmtDate=(s)=>{try{return new Date(s).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});}catch{return"";}};
+  const monthLabel=(k)=>{const[y,m]=(k||"").split("-");return new Date(Number(y),Number(m)-1,1).toLocaleDateString("en-GB",{month:"long",year:"numeric"});};
+
+  const saveEdit=async(m)=>{const v=draft.trim();if(!v){setEditing(null);return;}setBusy(true);const upd=await editMemory(m.id,{content:v});if(upd)setMem(mem.map(x=>x.id===m.id?{...x,...upd}:x));setEditing(null);setBusy(false);};
+  const forget=async(m)=>{if(!window.confirm("Forget this memory? Aiveree will no longer use it."))return;setBusy(true);const ok=await forgetMemory(m.id);if(ok)setMem(mem.filter(x=>x.id!==m.id));setBusy(false);};
+  const addProject=async()=>{const n=np.name.trim();if(!n||busy)return;setBusy(true);const p=await createProjectRecord(n,np.description);if(p)setProjects([p,...(projects||[])]);setNp({name:"",description:""});setBusy(false);};
+  const setStatus=async(p,status)=>{const upd=await updateProjectRecord(p.id,{status});if(upd)setProjects(projects.map(x=>x.id===p.id?upd:x));};
+  const delProject=async(p)=>{if(!window.confirm(`Delete "${p.name}"? This can't be undone.`))return;const ok=await deleteProjectRecord(p.id);if(ok)setProjects(projects.filter(x=>x.id!==p.id));};
+
+  const TABS=[["memory","Memory"],["timeline","Timeline"],["projects","Projects"]];
+  const card={background:"#fff",border:"1px solid #e8e8e8",borderRadius:12,padding:mobile?14:"16px 18px"};
+  const btn={background:"#000",border:"none",borderRadius:9999,padding:"8px 16px",fontSize:12,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"};
+  const ghost={background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"6px 13px",fontSize:12,color:"#333",cursor:"pointer",fontFamily:"Inter,sans-serif"};
+  const empty=(icon,title,sub)=>(
+    <div style={{background:"#fff",border:"1.5px dashed #e8e8e8",borderRadius:16,padding:"44px 24px",textAlign:"center"}}>
+      <div style={{fontSize:30,marginBottom:11}}>{icon}</div>
+      <div style={{fontWeight:400,fontSize:15,color:"#000",marginBottom:6,fontFamily:"Inter,sans-serif"}}>{title}</div>
+      <div style={{color:"#bbb",fontSize:13,fontWeight:300,fontFamily:"Inter,sans-serif"}}>{sub}</div>
+    </div>
+  );
+  const loading=<div style={{color:"#bbb",fontSize:13,fontWeight:300,fontFamily:"Inter,sans-serif",padding:"20px 2px"}}>Loading…</div>;
+
+  return(
+    <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+      <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"22px 14px 80px":"36px 28px 80px"}}>
+        <div style={{marginBottom:18}}>
+          <h2 style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:mobile?20:26,letterSpacing:-0.3,color:"#000",marginBottom:4}}>What Aiveree remembers</h2>
+          <p style={{fontSize:12,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif"}}>Your context is yours. See it, edit it, or forget it — nothing here is a black box.</p>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:"flex",gap:6,marginBottom:20,borderBottom:"1px solid #efefef"}}>
+          {TABS.map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{background:"none",border:"none",borderBottom:tab===id?"2px solid #000":"2px solid transparent",color:tab===id?"#000":"#999",fontSize:13,fontWeight:tab===id?500:300,cursor:"pointer",padding:"8px 10px",marginBottom:-1,fontFamily:"Inter,sans-serif"}}>{label}</button>
+          ))}
+        </div>
+
+        {/* MEMORY */}
+        {tab==="memory"&&(mem===null?loading:mem.length===0?empty("🧠","Nothing remembered yet","As you talk to Aiveree, the things that matter show up here."):(
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {mem.map(m=>(
+              <div key={m.id} style={card}>
+                {editing===m.id?(
+                  <div>
+                    <textarea value={draft} onChange={e=>setDraft(e.target.value)} rows={3} style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"vertical",boxSizing:"border-box"}}/>
+                    <div style={{display:"flex",gap:8,marginTop:9}}>
+                      <button onClick={()=>saveEdit(m)} disabled={busy} style={{...btn,opacity:busy?0.6:1}}>Save</button>
+                      <button onClick={()=>setEditing(null)} style={ghost}>Cancel</button>
+                    </div>
+                  </div>
+                ):(
+                  <div>
+                    <p style={{fontSize:mobile?13:14,color:"#111",lineHeight:1.55,fontWeight:400,fontFamily:"Inter,sans-serif",margin:0,marginBottom:9}}>{m.content}</p>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      {m.memory_type&&<span style={{fontSize:10,fontWeight:600,letterSpacing:0.5,textTransform:"uppercase",color:"#999",background:"#f5f5f5",borderRadius:9999,padding:"2px 8px",fontFamily:"Inter,sans-serif"}}>{m.memory_type}</span>}
+                      <span style={{fontSize:11,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif"}}>{m.source||"conversation"} · {fmtDate(m.created_at)}</span>
+                      <div style={{marginLeft:"auto",display:"flex",gap:7}}>
+                        <button onClick={()=>{setEditing(m.id);setDraft(m.content);}} style={{background:"none",border:"none",color:"#555",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Edit</button>
+                        <button onClick={()=>forget(m)} style={{background:"none",border:"none",color:"#c1440e",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Forget</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* TIMELINE */}
+        {tab==="timeline"&&(tl===null?loading:tl.length===0?empty("🗓️","Your timeline is empty","Come back once Aiveree has a few dated memories to group."):(
+          <div style={{position:"relative",paddingLeft:mobile?18:22}}>
+            <div style={{position:"absolute",left:mobile?4:6,top:6,bottom:6,width:1,background:"#e8e8e8"}}/>
+            {tl.map(g=>(
+              <div key={g.month} style={{marginBottom:22}}>
+                <div style={{position:"relative",marginBottom:12}}>
+                  <div style={{position:"absolute",left:mobile?-17:-21,top:3,width:9,height:9,borderRadius:9999,background:"#fff",border:"2px solid #d6d3d1"}}/>
+                  <div style={{fontFamily:"Inter,sans-serif",fontWeight:600,fontSize:12,letterSpacing:0.5,textTransform:"uppercase",color:"#999"}}>{monthLabel(g.month)}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {g.items.map(m=>(
+                    <div key={m.id} style={card}>
+                      <p style={{fontSize:13,color:"#111",lineHeight:1.5,fontWeight:400,fontFamily:"Inter,sans-serif",margin:0}}>{m.summary||m.content}</p>
+                      <div style={{fontSize:11,color:"#bbb",fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:5}}>{fmtDate(m.created_at)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {/* PROJECTS */}
+        {tab==="projects"&&(
+          <div>
+            <div style={{...card,marginBottom:16}}>
+              <div style={{fontWeight:500,fontSize:13,color:"#000",marginBottom:10,fontFamily:"Inter,sans-serif"}}>New project</div>
+              <input value={np.name} onChange={e=>setNp({...np,name:e.target.value})} placeholder="Project name (e.g. Seed round)" style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,boxSizing:"border-box",marginBottom:8}}/>
+              <input value={np.description} onChange={e=>setNp({...np,description:e.target.value})} placeholder="What's this project about? (optional)" onKeyDown={e=>e.key==="Enter"&&addProject()} style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,boxSizing:"border-box",marginBottom:10}}/>
+              <button onClick={addProject} disabled={busy||!np.name.trim()} style={{...btn,opacity:(busy||!np.name.trim())?0.5:1}}>Add project</button>
+            </div>
+            {projects===null?loading:projects.length===0?empty("📂","No projects yet","Group the ongoing threads of your work — a raise, a launch, a hire."):(
+              <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                {projects.map(p=>(
+                  <div key={p.id} style={{...card,display:"flex",gap:12,alignItems:"flex-start"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:500,fontSize:14,color:"#000",fontFamily:"Inter,sans-serif",marginBottom:p.description?3:0}}>{p.name}</div>
+                      {p.description&&<div style={{fontSize:12,color:"#888",fontWeight:300,lineHeight:1.5,fontFamily:"Inter,sans-serif"}}>{p.description}</div>}
+                      <div style={{fontSize:11,color:"#ccc",fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:5}}>Created {fmtDate(p.created_at)}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:7}}>
+                      <select value={p.status||"active"} onChange={e=>setStatus(p,e.target.value)} style={{background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9999,padding:"4px 10px",fontSize:11,color:"#555",fontFamily:"Inter,sans-serif",cursor:"pointer",outline:"none"}}>
+                        <option value="active">Active</option>
+                        <option value="paused">Paused</option>
+                        <option value="done">Done</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                      <button onClick={()=>delProject(p)} style={{background:"none",border:"none",color:"#c1440e",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Projects({projects,onSelectProject,onNewProject,mobile}){
   return(
     <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
@@ -1368,6 +1521,7 @@ export default function App(){
   const[user,setUser]=useState(null);
   const[projects,setProjects]=useState(()=>getProjects());
   const[selectedDomain,setSelectedDomain]=useState(null);
+  const[initialIdea,setInitialIdea]=useState(null);
   const[pendingIntel,setPendingIntel]=useState(null);
   const[credits,setCredits]=useState(()=>getCredits());
   const globalAudioRef=useRef(null);
@@ -1393,7 +1547,7 @@ export default function App(){
     if(globalAudioRef.current){globalAudioRef.current.pause();globalAudioRef.current.currentTime=0;}
   },[screen]);
 
-  const startOnboarding=domain=>{setSelectedDomain(domain||null);setScreen("onboarding");};
+  const startOnboarding=(domain,idea)=>{setSelectedDomain(domain||null);setInitialIdea(idea||null);setScreen("onboarding");};
   const handleOnboardingComplete=pi=>{setPendingIntel(pi);setScreen("auth");};
 
   const handleAuth=async(u,i)=>{
@@ -1449,7 +1603,7 @@ export default function App(){
     }, 100);
   };
 
-  const handleNewProject=()=>{setSelectedDomain(null);setScreen("onboarding");};
+  const handleNewProject=()=>{setSelectedDomain(null);setInitialIdea(null);setScreen("onboarding");};
   const handleSelectProject=p=>{
     const pi={...intel,goal:p.goal,domain_id:p.domain_id};
     setIntel(pi);setScreen("dashboard");
@@ -1482,6 +1636,7 @@ export default function App(){
               <nav style={{flex:1,display:"flex",alignItems:"center",marginLeft:28}}>
                 <button onClick={()=>setScreen("dashboard")} style={{background:"none",border:"none",color:screen==="dashboard"?"#000":"#999",fontSize:13,fontWeight:screen==="dashboard"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Dashboard</button>
                 <button onClick={()=>setScreen("projects")} style={{background:"none",border:"none",color:screen==="projects"?"#000":"#999",fontSize:13,fontWeight:screen==="projects"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Workspaces</button>
+                <button onClick={()=>setScreen("memory")} style={{background:"none",border:"none",color:screen==="memory"?"#000":"#999",fontSize:13,fontWeight:screen==="memory"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Memory</button>
               </nav>
             )}
             <div style={{display:"flex",alignItems:"center",gap:7,marginLeft:"auto",flexShrink:0}}>
@@ -1499,10 +1654,11 @@ export default function App(){
       )}
 
       {screen==="home"&&<Homepage onStart={startOnboarding} mobile={mobile}/>}
-      {screen==="onboarding"&&<Onboarding selectedDomain={selectedDomain} onComplete={handleOnboardingComplete} mobile={mobile}/>}
+      {screen==="onboarding"&&<Onboarding selectedDomain={selectedDomain} initialIdea={initialIdea} onComplete={handleOnboardingComplete} mobile={mobile}/>}
       {screen==="auth"&&<AuthScreen onAuth={handleAuth} prefilledIntel={pendingIntel||intel} mobile={mobile}/>}
       {screen==="dashboard"&&intel&&user&&<CommandCentre intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
+      {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
   );
 }

@@ -104,6 +104,14 @@ Run in Supabase, in this order:
 2. `security_setup.sql` — `rate_limits` (backs rate limiting in `lib/shared.js`).
 3. `workstreams_table.sql` — `workstreams`, `dashboards` (workstream persistence).
 4. `supabase_storage_setup.sql` — `voice-notes` bucket + `profiles.whatsapp_format`.
+5. `projects_table.sql` — `projects` (first-class projects, backs `projects.js` and
+   the in-app Memory Centre) + additive `project_id` columns on `workstreams`/`dashboards`.
+
+The in-app **Memory Centre** (nav → Memory) lets a signed-in user view, edit, and
+forget their memories, see a chronological timeline, and manage projects — all wired
+to `memory.js` (`list`/`update`/`delete`/`timeline`) and `projects.js`. These read/write
+the `memories` and `projects` tables; run `projects_table.sql` and ensure `memories`
+exists (below) before relying on them.
 
 The **memory** and **events** functions additionally require the larger canonical
 schema (`aiveree_schema_v3.1.sql`, 17 tables — `memories` + the `get_user_context`
