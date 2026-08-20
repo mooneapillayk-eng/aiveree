@@ -570,7 +570,7 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
     try{
       const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT},{onboarding:true});
       const data=await res.json();
-      let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Sorry, something went wrong.";
+      let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):("⚠️ "+(data.detail||data.error||"Sorry, something went wrong."));
       if(reply.includes("[ONBOARDING_COMPLETE]")){
         reply=reply.replace("[ONBOARDING_COMPLETE]","").trim();
         const final=[...next,{role:"assistant",content:reply}];
