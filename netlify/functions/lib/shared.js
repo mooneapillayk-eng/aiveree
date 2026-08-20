@@ -8,7 +8,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 // Single source of truth for the free tier and the model id.
 const FREE_DAILY_CREDITS = Number(process.env.FREE_DAILY_CREDITS || 5);
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5';
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 function allowedOrigins() {
