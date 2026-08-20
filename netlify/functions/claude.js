@@ -197,7 +197,9 @@ exports.handler = async (event) => {
           lastError = `API error ${res.status}: ${err}`;
           // Don't retry on upstream auth errors.
           if (res.status === 401 || res.status === 403) {
-            return json(502, CORS, { error: 'Upstream auth error', detail: lastError });
+            const k = process.env.ANTHROPIC_API_KEY || '';
+            const keyFp = `[server key check → present:${!!process.env.ANTHROPIC_API_KEY} len:${k.length} starts:${JSON.stringify(k.slice(0, 10))} ends:${JSON.stringify(k.slice(-4))} whitespace:${k !== k.trim()}]`;
+            return json(502, CORS, { error: 'Upstream auth error', detail: `${lastError} ${keyFp}` });
           }
           continue;
         }
