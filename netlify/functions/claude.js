@@ -197,7 +197,7 @@ exports.handler = async (event) => {
           lastError = `API error ${res.status}: ${err}`;
           // Don't retry on upstream auth errors.
           if (res.status === 401 || res.status === 403) {
-            return json(502, CORS, { error: 'Upstream auth error' });
+            return json(502, CORS, { error: 'Upstream auth error', detail: lastError });
           }
           continue;
         }
@@ -235,7 +235,7 @@ exports.handler = async (event) => {
 
     if (!result) {
       console.error('All attempts failed:', lastError);
-      return json(502, CORS, { error: 'Upstream model error' });
+      return json(502, CORS, { error: 'Upstream model error', detail: lastError });
     }
 
     if (userId && eventType) {
