@@ -198,21 +198,21 @@ const ONBOARDING_PROMPT=`You are Aiveree. One entity. Warm, direct, genuinely cu
 
 You have a team of specialists working for you. You brief them, they do the work, you deliver results.
 
-Understand what this person is working toward — 2-3 exchanges is enough. Ask one question at a time. Maximum 2-3 sentences per response.
+Understand what this person is working toward. Two or three exchanges is enough. Ask one question at a time. Keep each reply to two or three short sentences. Write like a real person: plain words, short sentences, and no em-dashes (use commas, full stops, or separate sentences instead).
 
 When you have enough to work with, tell them you're putting their team together. End with exactly: [ONBOARDING_COMPLETE]
 
 Never mention specific tool names, agents, or platform features. You are simply Aiveree.`;
 
-const DOMAIN_PROMPT=`You are Aiveree — a warm, direct, action-oriented AI with a specialist team working for you. You speak like a brilliant friend who gets things done.
+const DOMAIN_PROMPT=`You are Aiveree, a warm, direct, action-oriented AI with a specialist team working for you. You speak like a brilliant friend who gets things done. Write like a real person: plain words, short sentences, and no em-dashes.
 
 Domain: {DOMAIN}. User goal: {GOAL}
 
 BEHAVIOUR RULES:
-1. When the user asks you to do something — DO IT immediately and confirm what you did. "Done. My team has found X for you. Here's what we got:" then deliver the output.
-2. When something is unclear — ask ONE specific clarifying question before proceeding. "Before I do that — quick question: [specific question]?"
+1. When the user asks you to do something, do it immediately and confirm what you did. "Done. My team has found X for you. Here's what we got:" then deliver the output.
+2. When something is unclear, ask ONE specific clarifying question before proceeding. "Quick question before I start: [specific question]?"
 3. Proactively suggest improvements. After delivering results say "One thing I'd also suggest:" or "While my team was on this, they noticed:"
-4. When the user gives vague instructions — make a smart assumption, do the task, and confirm your assumption. "I've assumed you mean X — here's what we found. Tell me if you meant something different."
+4. When the user gives vague instructions, make a smart assumption, do the task, and confirm your assumption. "I've assumed you mean X, here's what we found. Tell me if you meant something different."
 5. Never just describe what you could do. Do it. Deliver the result in the same message.
 6. Keep conversational responses to 2-3 sentences. For task outputs, be as detailed as needed.
 7. Always end with a specific suggested next action. "Next, want me to [specific thing]?"
@@ -298,7 +298,7 @@ function Homepage({onStart,mobile}){
           What are you building?
         </h1>
         <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.6,fontWeight:400,maxWidth:600,margin:"0 auto",marginBottom:mobile?26:32}}>
-          Bring an idea, a problem or an ambition. Aiveree thinks it through with you, puts a specialist team to work on the research, drafts and plans, remembers every decision and detail — and comes back to you on WhatsApp when something needs your call.
+          Bring an idea, a problem, or something you're trying to figure out. Aiveree thinks it through with you, puts a specialist team on the research, drafts, and plans, and remembers every decision along the way. When something needs your call, she messages you on WhatsApp.
         </p>
 
         {/* Composer — one substantial input that begins the conversation */}
@@ -328,7 +328,7 @@ function Homepage({onStart,mobile}){
       {/* ── TEAM + WHATSAPP (upfront differentiator) ── */}
       <div style={{background:C.strong,padding:secPad,marginTop:mobile?24:40}}>
         <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head eyebrow="Not just a chat" title="You bring the goal. Aiveree's team does the work." sub="Aiveree briefs a specialist team on what you're building. They work in the background — research, drafts, plans — and she reaches you on WhatsApp when there's progress, or a decision that needs you." />
+          <Head eyebrow="Not just a chat" title="You bring the goal. Aiveree's team does the work." sub="Aiveree briefs a specialist team on what you're building. They work in the background on the research, drafts, and plans, and she reaches you on WhatsApp when there's progress or a decision that needs you." />
           <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?12:16,alignItems:"start"}}>
             {/* Team working */}
             <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
@@ -361,9 +361,9 @@ function Homepage({onStart,mobile}){
                 <div style={{marginLeft:"auto",fontFamily:F,fontSize:11,color:C.mutedSoft}}>now</div>
               </div>
               <div style={{background:"#f0fdf4",border:"1px solid #d6f0dd",borderRadius:"4px 14px 14px 14px",padding:"12px 14px",fontFamily:F,fontSize:mobile?14:14.5,color:C.ink,lineHeight:1.55}}>
-                Morning 👋 The team's mapped your market and drafted a first plan. One thing needs you — which segment to lead with? I've laid out the trade-offs.
+                Morning 👋 The team's mapped your market and drafted a first plan. One thing needs you: which segment to lead with? I've laid out the trade-offs.
               </div>
-              <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:12,lineHeight:1.5}}>She reaches you where you are — and you stay in control of every call.</p>
+              <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:12,lineHeight:1.5}}>She reaches you where you are, and you stay in control of every call.</p>
             </div>
           </div>
         </div>
@@ -372,7 +372,7 @@ function Homepage({onStart,mobile}){
       {/* ── CONTINUE WITH YOUR CHIEF OF STAFF (illustrative preview) ── */}
       <div style={{padding:secPad}}>
         <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="Whatever you bring — a business, a move, a career step, a decision — Aiveree keeps the thread and picks up exactly where you left off." />
+          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="Whatever you bring, whether it's a business, a move, a career step, or a decision, Aiveree keeps the thread and picks up exactly where you left off." />
           <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:14}}>Continue with your Chief of Staff</p>
           <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
             {WORK.map((w,i)=>(
@@ -405,7 +405,7 @@ function Homepage({onStart,mobile}){
       {/* ── A RELATIONSHIP THAT DEVELOPS ── */}
       <div style={{background:C.strong,padding:secPad}}>
         <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head title="A relationship that develops." sub="Aiveree isn't a tool you configure. It's a working understanding of what you're trying to achieve — one that gets sharper over time." />
+          <Head title="A relationship that develops." sub="Aiveree isn't a tool you configure. It's a working understanding of what you're trying to achieve, and it gets sharper over time." />
           <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
             {DEVELOP.map((d,i)=>(
               <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"24px 24px"}}>
@@ -421,7 +421,7 @@ function Homepage({onStart,mobile}){
       <div style={{background:C.ink,padding:mobile?"64px 20px":"104px 52px"}}>
         <div style={{maxWidth:720,margin:"0 auto",textAlign:"center"}}>
           <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?28:42,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.4px",lineHeight:1.08,marginBottom:16}}>Bring an idea. Aiveree helps you move it forward.</h2>
-          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Think it through, turn it into a plan, and make progress — with a Chief of Staff that remembers what matters to you.</p>
+          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Think it through, turn it into a plan, and make progress, with a Chief of Staff that remembers what matters to you.</p>
           <button onClick={()=>onStart(null)} style={{background:"#fff",border:"none",borderRadius:9999,padding:mobile?"14px 28px":"15px 34px",color:C.ink,fontWeight:600,cursor:"pointer",fontSize:mobile?15:16,fontFamily:F}}>Start with Aiveree</button>
           <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:16}}>Free to start · No credit card · Private by default</p>
         </div>
@@ -519,8 +519,8 @@ function AuthScreen({onAuth,prefilledIntel,mobile}){
 function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
   const domInfo=DOMAINS.find(d=>d.id===selectedDomain);
   const initMsg=selectedDomain
-    ?`Hey — I'm Aiveree. You want to work on ${domInfo?.label?.toLowerCase()}. Tell me more about your specific situation — what are you starting from and what does success look like for you?`
-    :"Hey — I'm Aiveree. What are you working toward right now? Tell me what's on your mind.";
+    ?`Hey, I'm Aiveree. You want to work on ${domInfo?.label?.toLowerCase()}. Tell me a bit more about your situation. What are you starting from, and what would success look like for you?`
+    :"Hey, I'm Aiveree. What are you working toward right now? Tell me what's on your mind.";
 
   const[msgs,setMsgs]=useState([{role:"assistant",content:initMsg}]);
   const[inp,setInp]=useState("");
@@ -816,7 +816,7 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const[wsState,setWsState]=useState({});// {idx:{status,result}}
   const[viewingWs,setViewingWs]=useState(null);// idx being viewed
   const wsStartedRef=useRef(false);
-  const initGreet=`Hi ${user?.name||"there"}! I've read everything you shared and briefed my team. ${de} Let's get to work — tap anything below or ask me directly.`;
+  const initGreet=`Hi ${user?.name||"there"}! I've read everything you shared and briefed my team. ${de} Let's get to work. Tap anything below, or just ask me directly.`;
   const[chatMsgs,setChatMsgs]=useState([{role:"assistant",content:initGreet}]);
   const[chatInp,setChatInp]=useState("");
   const[chatBusy,setChatBusy]=useState(false);
