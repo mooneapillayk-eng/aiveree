@@ -174,8 +174,9 @@ exports.handler = async (event) => {
     while (attempts <= maxRetries) {
       attempts++;
       try {
+        const ALLOWED_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-sonnet-5'];
         const reqBody = {
-          model: CLAUDE_MODEL,
+          model: (body.model && ALLOWED_MODELS.includes(body.model)) ? body.model : CLAUDE_MODEL,
           max_tokens: schemaValidation ? 2000 : 4000,
           system: fullSystem,
           messages,

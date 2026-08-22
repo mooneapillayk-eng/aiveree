@@ -202,7 +202,11 @@ Understand what this person is working toward. Two or three exchanges is enough.
 
 When you have enough to work with, tell them you're putting their team together. End with exactly: [ONBOARDING_COMPLETE]
 
-Never mention specific tool names, agents, or platform features. You are simply Aiveree.`;
+Never mention specific tool names, agents, or platform features. You are simply Aiveree.
+
+At the end of every message, unless the message contains [ONBOARDING_COMPLETE], add one final line in exactly this format offering two to four short replies the user could tap:
+[SUGGESTIONS: first reply | second reply | third reply]
+Write each suggestion in the user's own voice, as if they are answering you, and keep it under about six words. Do not refer to the suggestions in your visible message.`;
 
 const DOMAIN_PROMPT=`You are Aiveree, a warm, direct, action-oriented AI with a specialist team working for you. You speak like a brilliant friend who gets things done. Write like a real person: plain words, short sentences, and no em-dashes.
 
@@ -530,6 +534,19 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
   const[assembling,setAssembling]=useState(false);
   const ref=useRef(null);
   const{speak,muted,toggleMute}=useTTS();
+  const[suggestions,setSuggestions]=useState([]);
+  // Reveal a reply progressively for a live, streamed-in feel.
+  const revealTimer=useRef(null);
+  const revealReply=(base,full,onDone)=>{
+    if(revealTimer.current)clearInterval(revealTimer.current);
+    let i=0;const step=Math.max(2,Math.round(full.length/70));
+    setMsgs([...base,{role:"assistant",content:""}]);
+    revealTimer.current=setInterval(()=>{
+      i+=step;
+      setMsgs([...base,{role:"assistant",content:full.slice(0,i)}]);
+      if(i>=full.length){clearInterval(revealTimer.current);revealTimer.current=null;onDone&&onDone();}
+    },22);
+  };
 
   const OPTS=[[
     {emoji:"🚀",text:"I want to start a business or side hustle"},
@@ -566,11 +583,15 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
     const text=(ot||inp).trim();
     if(!text||busy)return;
     const next=[...msgs,{role:"user",content:text}];
-    setMsgs(next);setInp("");setBusy(true);
+    setMsgs(next);setInp("");setBusy(true);setSuggestions([]);
     try{
-      const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT},{onboarding:true});
+      const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT,model:"claude-haiku-4-5"},{onboarding:true});
       const data=await res.json();
       let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):("⚠️ "+(data.detail||data.error||"Sorry, something went wrong."));
+      // Pull out any tappable suggested replies the model offered.
+      let sugg=[];
+      const sm=reply.match(/\[SUGGESTIONS:([^\]]*)\]/i);
+      if(sm){sugg=sm[1].split("|").map(s=>s.trim()).filter(Boolean).slice(0,4);reply=reply.replace(sm[0],"").trim();}
       if(reply.includes("[ONBOARDING_COMPLETE]")){
         reply=reply.replace("[ONBOARDING_COMPLETE]","").trim();
         const final=[...next,{role:"assistant",content:reply}];
@@ -586,10 +607,9 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
         },1500);
         return;
       }
-      setMsgs([...next,{role:"assistant",content:reply}]);
-      speak(reply);
-    }catch{setMsgs([...next,{role:"assistant",content:"Something went wrong. Please try again."}]);}
-    setBusy(false);
+      setBusy(false);
+      revealReply(next,reply,()=>{setSuggestions(sugg);speak(reply);});
+    }catch{setMsgs([...next,{role:"assistant",content:"Something went wrong. Please try again."}]);setBusy(false);}
   };
 
   // Assembling team animation
@@ -685,21 +705,25 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
           </div>
         </div>
 
-        {/* Quick options */}
-        {!busy&&opts.length>0&&(
+        {/* Quick options / suggested replies */}
+        {(()=>{
+          const chips=suggestions.length?suggestions.map(t=>({text:t})):opts;
+          if(busy||chips.length===0)return null;
+          return(
           <div>
-            <div style={{fontSize:10,color:"#ccc",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8,textAlign:"center",fontFamily:"Inter,sans-serif"}}>Or pick one</div>
+            <div style={{fontSize:10,color:"#ccc",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8,textAlign:"center",fontFamily:"Inter,sans-serif"}}>{suggestions.length?"Or tap a reply":"Or pick one"}</div>
             <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:6}}>
-              {opts.map(s=>(
+              {chips.map(s=>(
                 <button key={s.text} onClick={()=>send(s.text)} style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:10,padding:"10px 13px",fontSize:12,color:"#444",cursor:"pointer",textAlign:"left",lineHeight:1.55,display:"flex",gap:8,alignItems:"flex-start",fontFamily:"Inter,sans-serif",fontWeight:300}}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor=dc;e.currentTarget.style.background="#fafafa";}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="#fff";}}>
-                  <span style={{fontSize:14,flexShrink:0}}>{s.emoji}</span><span>{s.text}</span>
+                  {s.emoji&&<span style={{fontSize:14,flexShrink:0}}>{s.emoji}</span>}<span>{s.text}</span>
                 </button>
               ))}
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
