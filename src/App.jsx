@@ -587,7 +587,7 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
     try{
       const res=await apiFetch("/.netlify/functions/claude",{messages:next.map(m=>({role:m.role,content:m.content})),system:ONBOARDING_PROMPT,model:"claude-haiku-4-5"},{onboarding:true});
       const data=await res.json();
-      let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):("⚠️ "+(data.detail||data.error||"Sorry, something went wrong."));
+      let reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Hmm, something went wrong on my end. Mind trying that again?";
       // Pull out any tappable suggested replies the model offered.
       let sugg=[];
       const sm=reply.match(/\[SUGGESTIONS:([^\]]*)\]/i);
