@@ -777,7 +777,7 @@ function CapabilityRunner({cap,intel,domainColor,onClose,onCreditUsed,credits}){
       // Reconcile with the server's authoritative balance (profiles.credits).
       if(typeof data.credits_remaining==="number"){saveCredits(data.credits_remaining);onCreditUsed(data.credits_remaining);}
       const text=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n\n"):"";
-      setOutput(text||"Something went wrong. Please try again.");
+      setOutput(text||("⚠️ "+(data.detail||data.error||"Something went wrong. Please try again.")));
       // Speak a brief summary
       speak(`Here's what my team found for you.`);
     }catch{setOutput("Something went wrong. Please try again.");}
@@ -1066,7 +1066,7 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
       const data=await res.json();
       // Reconcile with the server's authoritative balance (profiles.credits).
       if(typeof data.credits_remaining==="number"){saveCredits(data.credits_remaining);onCreditUsed(data.credits_remaining);}
-      const reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"Something went wrong.";
+      const reply=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):("⚠️ "+(data.detail||data.error||"Something went wrong."));
       setChatMsgs([...next,{role:"assistant",content:reply}]);
       // Speak first 2 sentences as summary, rest is shown as text
       const sentences=reply.split(/(?<=[.!?])\s+/).slice(0,2).join(" ");
