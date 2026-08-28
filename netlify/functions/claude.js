@@ -12,6 +12,7 @@ const {
   clientIp,
   INTERNAL_HEADERS,
   json,
+  supabase,
 } = require('./lib/shared');
 
 // Reject obviously abusive payloads early.
@@ -121,7 +122,17 @@ exports.handler = async (event) => {
     const user = await getOptionalUser(event);
     const onboarding = mode === 'onboarding';
     if (!user && !onboarding) {
-      return json(401, CORS, { error: 'Authentication required' });
+      // Temporary diagnostic: why is the login token being rejected?
+      const raw = event.headers?.authorization || event.headers?.Authorization || '';
+      const tok = raw.startsWith('Bearer ') ? raw.slice(7) : '';
+      let dbg = `tokenPresent:${!!tok} len:${tok.length}`;
+      if (tok) {
+        try {
+          const r = await supabase.auth.getUser(tok);
+          dbg += ` getUser:${r.data && r.data.user ? 'ok' : 'null'} err:${(r.error && r.error.message) || 'none'}`;
+        } catch (e) { dbg += ` getUserThrew:${e.message}`; }
+      }
+      return json(401, CORS, { error: 'Authentication required', detail: dbg });
     }
 
     // ── Request size cap ───────────────────────────────────────────────────────
