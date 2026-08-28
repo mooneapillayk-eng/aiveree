@@ -630,6 +630,7 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
   const[complete,setComplete]=useState(false);
   const[pending,setPending]=useState(null);
   const[assembling,setAssembling]=useState(false);
+  const[completeData,setCompleteData]=useState(null);
   const ref=useRef(null);
   const{speak,muted,toggleMute}=useTTS();
   const[suggestions,setSuggestions]=useState([]);
@@ -693,16 +694,9 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
       if(reply.includes("[ONBOARDING_COMPLETE]")){
         reply=reply.replace("[ONBOARDING_COMPLETE]","").trim();
         const final=[...next,{role:"assistant",content:reply}];
-        setMsgs(final);speak(reply);setBusy(false);
-        setTimeout(()=>{
-          setAssembling(true);
-          setTimeout(()=>{
-            const domainId=classifyGoal(final,selectedDomain);
-            const goal=next.filter(m=>m.role==="user").map(m=>m.content).join(" | ");
-            setPending({goal,domain_id:domainId,onboarding_complete:true,conversation:final,created_at:new Date().toISOString()});
-            setComplete(true);setAssembling(false);
-          },3000);
-        },1500);
+        setBusy(false);setSuggestions([]);
+        // Show the final message, then let the user move on when they're ready.
+        revealReply(next,reply,()=>{speak(reply);setCompleteData({final,next});});
         return;
       }
       setBusy(false);
@@ -802,6 +796,22 @@ function Onboarding({selectedDomain,initialIdea,onComplete,mobile}){
             <button onClick={()=>send()} disabled={busy||!inp.trim()} style={{background:"#000",border:"none",borderRadius:9,padding:"10px 16px",color:"#fff",fontWeight:500,cursor:busy||!inp.trim()?"not-allowed":"pointer",fontSize:13,opacity:busy||!inp.trim()?0.4:1,fontFamily:"Inter,sans-serif"}}>→</button>
           </div>
         </div>
+
+        {/* Onboarding done — user presses Continue when they've read the final message */}
+        {completeData&&(
+          <div style={{textAlign:"center",marginTop:16}}>
+            <button onClick={()=>{
+              const cd=completeData;setCompleteData(null);setAssembling(true);
+              setTimeout(()=>{
+                const domainId=classifyGoal(cd.final,selectedDomain);
+                const goal=cd.next.filter(m=>m.role==="user").map(m=>m.content).join(" | ");
+                setPending({goal,domain_id:domainId,onboarding_complete:true,conversation:cd.final,created_at:new Date().toISOString()});
+                setComplete(true);setAssembling(false);
+              },3000);
+            }} style={{background:"#000",border:"none",borderRadius:9999,padding:"13px 30px",color:"#fff",fontWeight:600,fontSize:15,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>I'm ready →</button>
+            <p style={{fontSize:12,color:"#bbb",marginTop:10,fontFamily:"Inter,sans-serif"}}>Take your time. Tap when you're ready and I'll put your team together.</p>
+          </div>
+        )}
 
         {/* Quick options / suggested replies */}
         {(()=>{
