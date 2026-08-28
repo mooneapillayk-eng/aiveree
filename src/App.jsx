@@ -194,7 +194,7 @@ function useVoiceInput(onResult){
 }
 
 // ─── ONBOARDING PROMPT ────────────────────────────────────────────────────────
-const ONBOARDING_PROMPT=`You are Aiveree. One entity. Warm, direct, genuinely curious. You speak like a brilliant friend who gets things done. Short sentences. No jargon. Never corporate.
+const ONBOARDING_PROMPT=`You are Aiveree. One entity. Warm, direct, genuinely curious. You speak like a brilliant friend who gets things done. Short sentences. No jargon. Never corporate. You are on their side, like a coach who genuinely believes in them. You help turn a dream into a clear goal and the next real step, and you hold them to it kindly. Encourage first, be honest that real goals take work, celebrate small progress, and never guilt-trip. Changing the plan is fine, and even changing the dream is fine, because you adapt with them.
 
 You have a team of specialists working for you. You brief them, they do the work, you deliver results.
 
@@ -210,7 +210,7 @@ At the end of every message, unless the message contains [ONBOARDING_COMPLETE], 
 [SUGGESTIONS: first reply | second reply | third reply]
 Write each suggestion in the user's own voice, as if they are answering you, and keep it under about six words. Do not refer to the suggestions in your visible message.`;
 
-const DOMAIN_PROMPT=`You are Aiveree, a warm, direct, action-oriented AI with a specialist team working for you. You speak like a brilliant friend who gets things done. Write like a real person: plain words, short sentences, and no em-dashes. Speak in everyday English and assume the person is smart but not an expert. Avoid jargon, and explain any technical, legal, or financial term in a few plain words the first time you use it.
+const DOMAIN_PROMPT=`You are Aiveree, a warm, direct, action-oriented AI with a specialist team working for you. You speak like a brilliant friend who gets things done. Write like a real person: plain words, short sentences, and no em-dashes. Speak in everyday English and assume the person is smart but not an expert. Avoid jargon, and explain any technical, legal, or financial term in a few plain words the first time you use it. You are on their side, like a coach who believes in them. Help turn their goal into the next real step and hold them to it kindly. Encourage first, be honest that it takes work, celebrate progress, and never guilt-trip. Always end by pointing to the next small step.
 
 Domain: {DOMAIN}. User goal: {GOAL}
 
@@ -255,6 +255,99 @@ function getDomainEmoji(id){return DOMAINS.find(d=>d.id===id)?.emoji||"✨";}
 // calm preview of how the relationship develops over time (Continue with your
 // Chief of Staff · Aiveree noticed). It is NOT a dense command centre. Keeps
 // the existing warm Aiveree identity; purple stays a quiet accent.
+// ─── IDEA GENERATOR ───────────────────────────────────────────────────────────
+// For people who want to do something but don't know what. Collects skills,
+// experience, passion, how they feel, and what success means, then Aiveree
+// suggests a few tailored directions that flow straight into onboarding.
+const IDEA_GENERATOR_PROMPT=`You are Aiveree, a warm and insightful guide helping someone who wants to do something meaningful but does not yet know what. Based on what they tell you about their skills, experience, passions, how they feel about life, what success means to them, and their constraints, suggest 3 or 4 specific, realistic directions that genuinely fit them. Not generic advice. Tie each one back to what they told you. Be honest about the effort involved. Speak in plain everyday English, no jargon, no em-dashes.
+Return ONLY the ideas, one per line, in exactly this format with " || " between the four parts and nothing else:
+Title || Why this fits you, in one sentence that references their answers || A realistic first step they could take this week || Honest effort and rough timeline
+Give 3 or 4 lines. No intro, no numbering, no closing text.`;
+
+function IdeaGenerator({onStart,onClose,mobile}){
+  const C={canvas:"#f5f5f5",card:"#fff",ink:"#0c0a09",inkWarm:"#292524",body:"#4e4e4e",muted:"#777169",mutedSoft:"#a8a29e",line:"#e7e5e4",lineStrong:"#d6d3d1"};
+  const A="#5b21b6",AB="#f4f0fb",ABL="#e7dcfa";
+  const F="'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+  const[form,setForm]=useState({skills:"",experience:"",passion:"",feeling:"",success:"",constraints:""});
+  const[loading,setLoading]=useState(false);
+  const[ideas,setIdeas]=useState(null);
+  const[error,setError]=useState("");
+  const set=k=>e=>setForm(f=>({...f,[k]:e.target.value}));
+  const FIELDS=[
+    ["skills","What are you good at?","Skills, talents, the things people come to you for"],
+    ["experience","What do you have experience in?","Work, studies, life so far"],
+    ["passion","What do you love doing?","The things you'd happily lose hours to"],
+    ["feeling","How are you feeling about life right now?","Restless, stuck, excited, burnt out, ready for a change"],
+    ["success","What would success look like for you?","More freedom, income, impact, creativity, time"],
+    ["constraints","Any practical constraints? (optional)","Time you have, whether you need to earn soon, budget"],
+  ];
+  const canGo=form.skills.trim()&&form.passion.trim()&&form.success.trim();
+  const generate=async()=>{
+    if(loading||!canGo)return;
+    setLoading(true);setError("");
+    try{
+      const userPrompt=`Here is what I know about myself:\n- Good at: ${form.skills}\n- Experience: ${form.experience}\n- Passionate about: ${form.passion}\n- How I feel about life: ${form.feeling}\n- Success looks like: ${form.success}\n- Constraints: ${form.constraints||"none mentioned"}\n\nSuggest ideas for what I could do.`;
+      const res=await apiFetch("/.netlify/functions/claude",{messages:[{role:"user",content:userPrompt}],system:IDEA_GENERATOR_PROMPT,model:"claude-sonnet-4-6"},{onboarding:true});
+      const data=await res.json();
+      const text=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join("\n"):"";
+      const parsed=text.split("\n").filter(l=>l.includes("||")).map(l=>{
+        const p=l.split("||").map(s=>s.trim());
+        return {title:(p[0]||"").replace(/^[-*\d.\s]+/,"").trim(),fit:p[1]||"",step:p[2]||"",effort:p[3]||""};
+      }).filter(x=>x.title);
+      if(!parsed.length)setError("I couldn't shape ideas just then. Mind trying again?");
+      else setIdeas(parsed);
+    }catch{setError("Something went wrong on my end. Mind trying again?");}
+    setLoading(false);
+  };
+  const inputStyle={width:"100%",background:C.card,border:`1px solid ${C.lineStrong}`,borderRadius:10,padding:"10px 12px",fontSize:14,color:C.ink,outline:"none",fontFamily:F,resize:"vertical",lineHeight:1.5};
+  return(
+    <div style={{background:C.canvas,minHeight:"100vh",fontFamily:F,color:C.ink}}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');`}</style>
+      <div style={{maxWidth:640,margin:"0 auto",padding:mobile?"28px 18px 72px":"48px 24px 96px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:mobile?22:30}}>
+          <div style={{width:30,height:30,borderRadius:9,background:A,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13}}>A</div>
+          <div style={{fontWeight:600,fontSize:15,color:C.ink}}>Find your idea</div>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"transparent",border:`1px solid ${C.line}`,borderRadius:9999,padding:"6px 14px",fontSize:13,color:C.body,cursor:"pointer",fontFamily:F}}>Back</button>
+        </div>
+
+        {!ideas&&(<>
+          <h1 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:34,letterSpacing:"-1px",lineHeight:1.1,color:C.ink,marginBottom:12}}>Not sure what to do? Let's find it.</h1>
+          <p style={{fontSize:mobile?15:16,color:C.body,lineHeight:1.6,marginBottom:26,maxWidth:"56ch"}}>Tell me a little about you and I'll suggest a few real directions that actually fit. The more honest you are, the better they'll be.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            {FIELDS.map(([k,q,ph])=>(
+              <div key={k}>
+                <div style={{fontFamily:F,fontSize:13,fontWeight:600,color:C.ink,marginBottom:5}}>{q}</div>
+                <textarea value={form[k]} onChange={set(k)} placeholder={ph} rows={2} style={inputStyle}
+                  onFocus={e=>e.target.style.borderColor=A} onBlur={e=>e.target.style.borderColor=C.lineStrong}/>
+              </div>
+            ))}
+          </div>
+          {error&&<p style={{color:"#b42318",fontSize:13,marginTop:14}}>{error}</p>}
+          <button onClick={generate} disabled={!canGo||loading} style={{marginTop:22,width:"100%",background:canGo&&!loading?C.inkWarm:"#d6d3d1",border:"none",borderRadius:9999,padding:14,color:"#fff",fontWeight:600,fontSize:15,cursor:canGo&&!loading?"pointer":"not-allowed",fontFamily:F}}>{loading?"Thinking about you…":"Find my ideas"}</button>
+          <p style={{fontSize:12,color:C.mutedSoft,textAlign:"center",marginTop:12}}>Free · No account needed</p>
+        </>)}
+
+        {ideas&&(<>
+          <h1 style={{fontFamily:F,fontWeight:300,fontSize:mobile?24:30,letterSpacing:"-0.8px",lineHeight:1.12,color:C.ink,marginBottom:8}}>A few directions that fit you.</h1>
+          <p style={{fontSize:14,color:C.body,lineHeight:1.6,marginBottom:22,maxWidth:"56ch"}}>Pick one that resonates and we'll start building it together. There's no wrong choice, and you can change your mind.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {ideas.map((it,i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:14,padding:mobile?"16px":"18px 20px"}}>
+                <div style={{fontWeight:600,fontSize:16,color:C.ink,marginBottom:8,letterSpacing:-0.2}}>{it.title}</div>
+                {it.fit&&<p style={{fontSize:13.5,color:C.body,lineHeight:1.55,margin:"0 0 10px"}}>{it.fit}</p>}
+                {it.step&&<div style={{fontSize:13,color:C.ink,background:"#faf8f5",border:`1px solid ${C.line}`,borderRadius:9,padding:"9px 11px",marginBottom:8,lineHeight:1.5}}><strong style={{fontWeight:600}}>First step:</strong> {it.step}</div>}
+                {it.effort&&<div style={{fontSize:12.5,color:C.muted,marginBottom:12}}>{it.effort}</div>}
+                <button onClick={()=>onStart(null,`I want to work on this: ${it.title}`)} style={{display:"inline-flex",alignItems:"center",gap:6,background:AB,border:`1px solid ${ABL}`,borderRadius:9999,padding:"9px 16px",color:A,fontWeight:600,fontSize:13.5,cursor:"pointer",fontFamily:F}}>Start this with Aiveree →</button>
+              </div>
+            ))}
+          </div>
+          <button onClick={()=>setIdeas(null)} style={{marginTop:18,background:"transparent",border:`1px solid ${C.line}`,borderRadius:9999,padding:"10px 18px",fontSize:13,color:C.body,cursor:"pointer",fontFamily:F}}>Start over</button>
+        </>)}
+      </div>
+    </div>
+  );
+}
+
 function Homepage({onStart,mobile}){
   const C={canvas:"#f5f5f5",soft:"#fafafa",card:"#fff",strong:"#f0efed",ink:"#0c0a09",inkWarm:"#292524",body:"#4e4e4e",muted:"#777169",mutedSoft:"#a8a29e",line:"#e7e5e4",lineStrong:"#d6d3d1"};
   const A="#5b21b6", AB="#f4f0fb", ABL="#e7dcfa";
@@ -263,7 +356,9 @@ function Homepage({onStart,mobile}){
 
   const [idea,setIdea]=useState("");
   const composerRef=useRef(null);
+  const [ideaGen,setIdeaGen]=useState(false);
   const go=()=>onStart(null,idea.trim()||undefined);
+  if(ideaGen)return <IdeaGenerator onStart={onStart} onClose={()=>setIdeaGen(false)} mobile={mobile}/>;
 
   const mark=(sz)=>(
     <div style={{width:sz,height:sz,borderRadius:sz*0.28,background:A,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*0.42,color:"#fff",fontWeight:700,fontFamily:F,flexShrink:0}}>A</div>
@@ -301,10 +396,10 @@ function Homepage({onStart,mobile}){
       <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"84px 20px 0":"128px 52px 0",textAlign:"center"}}>
         <p style={{fontFamily:F,fontSize:12,fontWeight:600,letterSpacing:0.96,textTransform:"uppercase",color:C.muted,marginBottom:mobile?18:22}}>Your AI Chief of Staff</p>
         <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,9vw,46px)":"clamp(46px,5vw,64px)",fontWeight:300,lineHeight:1.04,letterSpacing:mobile?"-1.2px":"-2px",color:C.ink,marginBottom:20}}>
-          What are you building?
+          Build your dream.
         </h1>
         <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.6,fontWeight:400,maxWidth:600,margin:"0 auto",marginBottom:mobile?26:32}}>
-          Bring an idea, a problem, or something you're trying to figure out. Aiveree thinks it through with you, puts a specialist team on the research, drafts, and plans, and remembers every decision along the way. When something needs your call, she messages you on WhatsApp.
+          Tell Aiveree what you want. She turns it into a plan, keeps you moving, and won't let it quietly slip. It takes work, but you won't be doing it alone.
         </p>
 
         {/* Composer — one substantial input that begins the conversation */}
@@ -329,6 +424,7 @@ function Homepage({onStart,mobile}){
           ))}
         </div>
         <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:18}}>Free to start · No credit card · Works over web, voice and WhatsApp</p>
+        <button onClick={()=>setIdeaGen(true)} style={{marginTop:14,background:"transparent",border:"none",color:A,fontWeight:600,fontSize:14,cursor:"pointer",fontFamily:F,borderBottom:`1px solid ${ABL}`,paddingBottom:1}}>Not sure yet? Find your idea →</button>
       </div>
 
       {/* ── TEAM + WHATSAPP (upfront differentiator) ── */}
@@ -426,8 +522,8 @@ function Homepage({onStart,mobile}){
       {/* ── CLOSING ── */}
       <div style={{background:C.ink,padding:mobile?"64px 20px":"104px 52px"}}>
         <div style={{maxWidth:720,margin:"0 auto",textAlign:"center"}}>
-          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?28:42,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.4px",lineHeight:1.08,marginBottom:16}}>Bring an idea. Aiveree helps you move it forward.</h2>
-          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Think it through, turn it into a plan, and make progress, with a Chief of Staff that remembers what matters to you.</p>
+          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?28:42,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.4px",lineHeight:1.08,marginBottom:16}}>A goal without a plan is just a wish.</h2>
+          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Let's make yours real. Tell Aiveree what you want, and start building it today.</p>
           <button onClick={()=>onStart(null)} style={{background:"#fff",border:"none",borderRadius:9999,padding:mobile?"14px 28px":"15px 34px",color:C.ink,fontWeight:600,cursor:"pointer",fontSize:mobile?15:16,fontFamily:F}}>Start with Aiveree</button>
           <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:16}}>Free to start · No credit card · Private by default</p>
         </div>
