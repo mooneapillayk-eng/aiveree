@@ -176,7 +176,7 @@ exports.handler = async (event) => {
       ? `${system || ''}\n\n─── AIVEREE MEMORY CONTEXT ───\n${memoryContext}\n─────────────────────────────`
       : (system || '');
 
-    const tools = useSearch ? [{ type: 'web_search_20250305', name: 'web_search' }] : undefined;
+    const tools = useSearch ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }] : undefined;
 
     let attempts = 0;
     let lastError = null;

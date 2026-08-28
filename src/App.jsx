@@ -951,8 +951,11 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const timeOfDay=new Date().getHours();
   const gr=timeOfDay<12?"Good morning":timeOfDay<17?"Good afternoon":"Good evening";
 
-  // Speak greeting on mount
-  useEffect(()=>{speak(initGreet);},[]);
+  // Speak the greeting once the workspace has actually loaded, not during loading.
+  const greetedRef=useRef(false);
+  const sayGreeting=()=>{if(!greetedRef.current){greetedRef.current=true;speak(initGreet);}};
+  useEffect(()=>{if(dash)sayGreeting();},[dash]);// eslint-disable-line
+  useEffect(()=>{const t=setTimeout(sayGreeting,6000);return()=>clearTimeout(t);},[]);// eslint-disable-line
 
   // Auto-send when voice result arrives
   useEffect(()=>{
