@@ -24,12 +24,14 @@ async function generateSpeech(text) {
       },
       body: JSON.stringify({
         text: clean,
-        model_id: "eleven_flash_v2_5",
+        // Turbo v2.5 sounds noticeably warmer and more natural than Flash.
+        model_id: "eleven_turbo_v2_5",
         voice_settings: {
-          stability: 0.45,
-          similarity_boost: 0.85,
-          style: 0.35,
-          use_speaker_boost: true
+          stability: 0.5,
+          similarity_boost: 0.8,
+          style: 0.28,
+          use_speaker_boost: true,
+          speed: 0.9 // slow the pace slightly so she doesn't sound rushed or abrupt
         }
       })
     }
