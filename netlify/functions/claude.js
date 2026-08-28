@@ -176,14 +176,18 @@ exports.handler = async (event) => {
       ? `${system || ''}\n\n─── AIVEREE MEMORY CONTEXT ───\n${memoryContext}\n─────────────────────────────`
       : (system || '');
 
-    const tools = useSearch ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }] : undefined;
+    const tools = useSearch ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }] : undefined;
 
     let attempts = 0;
     let lastError = null;
     let result = null;
+    const startedAt = Date.now();
 
     while (attempts <= maxRetries) {
       attempts++;
+      // Don't start a fresh retry if we're low on the function's time budget —
+      // fail fast with a clear message instead of being killed mid-request.
+      if (attempts > 1 && Date.now() - startedAt > 14000) break;
       try {
         const ALLOWED_MODELS = ['claude-haiku-4-5', 'claude-sonnet-4-6', 'claude-sonnet-5'];
         const reqBody = {
