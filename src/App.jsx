@@ -914,6 +914,7 @@ function CapabilityRunner({cap,intel,domainColor,onClose,onCreditUsed,credits}){
           <div style={{fontSize:14,color:"#333",lineHeight:1.85,fontWeight:300,fontFamily:"Inter,sans-serif"}}><MD text={output}/></div>
           <div style={{display:"flex",gap:7,marginTop:12}}>
             <button onClick={()=>navigator.clipboard.writeText(output)} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"5px 12px",fontSize:11,color:"#444",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Copy</button>
+            <button onClick={()=>downloadText(`${safeFileName(cap.label,"aiveree-deliverable")}.md`,output)} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"5px 12px",fontSize:11,color:"#444",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Download</button>
             {!cap.auto&&<button onClick={()=>{setOutput("");setStarted(false);setTaskInput("");}} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"5px 12px",fontSize:11,color:"#444",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Run again</button>}
             <button onClick={onClose} style={{background:`${domainColor}10`,border:`1px solid ${domainColor}20`,borderRadius:9999,padding:"5px 12px",fontSize:11,color:domainColor,cursor:"pointer",fontWeight:500,fontFamily:"Inter,sans-serif"}}>Done</button>
           </div>
@@ -922,6 +923,18 @@ function CapabilityRunner({cap,intel,domainColor,onClose,onCreditUsed,credits}){
     </div>
   );
 }
+
+// Download any text deliverable as a Markdown file the user can keep.
+function downloadText(filename, text){
+  try{
+    const blob=new Blob([text||""],{type:"text/markdown"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},0);
+  }catch{}
+}
+const safeFileName=(s,fallback)=>((s||"").replace(/[^\w -]/g,"").trim().slice(0,60)||fallback);
 
 // ─── COMMAND CENTRE ───────────────────────────────────────────────────────────
 function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
@@ -1026,7 +1039,7 @@ Generate ONLY valid JSON, no markdown:
     {"title": "a decision or input needed from them", "detail": "calm, low-pressure framing of what would help", "type": "decision"}
   ],
   "quiet_progress": [
-    {"icon": "single relevant emoji", "text": "something your team has quietly done or is monitoring in the background, specific to their goal"}
+    {"icon": "single relevant emoji", "text": "a genuinely useful, specific insight or piece of preparatory thinking about their goal that gives them real value or something to learn — never a claim to have accessed live data, prices, or tools you do not actually have"}
   ],
   "suggested_capabilities": [
     {"id": "cap1", "label": "specific action button text", "icon": "emoji", "description": "one sentence explaining what this does for their goal"}
@@ -1036,7 +1049,7 @@ Generate ONLY valid JSON, no markdown:
 Requirements:
 - 3 active_workstreams, specific to their goal and domain
 - 2 open_loops, framed calmly as things that would help — never as pressure
-- 3 quiet_progress items — these create the feeling that work happens even when they are away. Be specific.
+- 3 quiet_progress items — each a genuinely useful, honest insight or consideration for their goal that delivers real value or teaches them something. Do NOT fabricate live-data actions (e.g. "monitoring current prices", "cross-referencing a data feed") that are not actually happening. Real and specific, not theatre.
 - suggested_capabilities: 5 specific actions THEY SHOULD TAKE based on their goal, NOT generic domain buttons. Example: if goal is "AI governance consultancy" → ["Research target clients", "Build case studies", "Draft service offering", ...]. Make these CONCRETE and relevant.
 - next_best_action is ONE action, deeply relevant. This is the most important field.
 - Everything references what they ACTUALLY said. No generic filler. No hype. Calm operational tone throughout.`;
@@ -1302,8 +1315,13 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
                   <button onClick={()=>setViewingWs(null)} style={{background:"#f5f5f5",border:"none",borderRadius:8,width:30,height:30,fontSize:16,color:"#888",cursor:"pointer",flexShrink:0}}>×</button>
                 </div>
                 <div style={{fontSize:13,color:"#333",lineHeight:1.75,fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:14}}><MD text={wsState[viewingWs].result}/></div>
-                <button onClick={()=>{setViewingWs(null);sendChat(`Let's go deeper on: ${d.active_workstreams[viewingWs].title}`);}}
-                  style={{marginTop:18,background:"#0a0a0a",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:13,color:"#fff",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Take this further →</button>
+                <div style={{display:"flex",gap:8,marginTop:18,flexWrap:"wrap"}}>
+                  <button onClick={()=>downloadText(`${safeFileName(d.active_workstreams[viewingWs].title,"aiveree-deliverable")}.md`,wsState[viewingWs].result)}
+                    style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:9999,padding:"11px 18px",fontSize:13,color:"#333",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Download</button>
+                  <button onClick={()=>{const t=d.active_workstreams[viewingWs].title;setViewingWs(null);sendChat(`Take this further: ${t}`);}}
+                    style={{background:"#0a0a0a",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:13,color:"#fff",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Continue with Aiveree →</button>
+                </div>
+                <p style={{fontSize:11,color:"#aaa",marginTop:9,fontFamily:"Inter,sans-serif",lineHeight:1.5}}>“Continue” opens this in your chat so you can dig deeper, refine it, or get the next step.</p>
               </div>
             </div>
           )}
@@ -1334,7 +1352,7 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
           {d.quiet_progress?.length>0&&(
             <div style={{marginBottom:18,background:"#fafafa",border:"1px solid #efefef",borderRadius:12,padding:mobile?"14px 15px":"16px 18px"}}>
               <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><span>🌙</span> Quiet progress</div>
-              <p style={{fontSize:10.5,color:"#bbb",marginBottom:12,fontFamily:"Inter,sans-serif",fontWeight:300}}>What I've been doing in the background, even when you weren't here.</p>
+              <p style={{fontSize:10.5,color:"#bbb",marginBottom:12,fontFamily:"Inter,sans-serif",fontWeight:300}}>Useful things I've been thinking through for your goal.</p>
               <div style={{display:"flex",flexDirection:"column",gap:9}}>
                 {d.quiet_progress.map((q,i)=>(
                   <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
