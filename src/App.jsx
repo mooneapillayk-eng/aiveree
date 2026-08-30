@@ -360,182 +360,204 @@ function Homepage({onStart,mobile}){
   const go=()=>onStart(null,idea.trim()||undefined);
   if(ideaGen)return <IdeaGenerator onStart={onStart} onClose={()=>setIdeaGen(false)} mobile={mobile}/>;
 
-  const mark=(sz)=>(
-    <div style={{width:sz,height:sz,borderRadius:sz*0.28,background:A,display:"flex",alignItems:"center",justifyContent:"center",fontSize:sz*0.42,color:"#fff",fontWeight:700,fontFamily:F,flexShrink:0}}>A</div>
-  );
-  const Head=({eyebrow,title,sub,dark})=>(
-    <div style={{textAlign:"center",maxWidth:680,margin:"0 auto",marginBottom:mobile?32:48}}>
-      {eyebrow&&<p style={{fontSize:12,color:dark?"rgba(255,255,255,0.5)":C.muted,fontFamily:F,letterSpacing:0.96,textTransform:"uppercase",marginBottom:14,fontWeight:600}}>{eyebrow}</p>}
-      <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?26:36,color:dark?"#fff":C.ink,letterSpacing:mobile?"-0.6px":"-1px",lineHeight:1.12,margin:0}}>{title}</h2>
-      {sub&&<p style={{fontFamily:F,fontSize:mobile?15:16.5,color:dark?"rgba(255,255,255,0.62)":C.body,fontWeight:400,lineHeight:1.6,marginTop:14}}>{sub}</p>}
-    </div>
-  );
-
-  const STARTERS=[
-    ["Start a business","I want to start a business."],
-    ["Plan a project","Help me plan a project I'm working on."],
-    ["Work through a decision","I need to work through a decision."],
-    ["Research something","Research something for me."],
-  ];
-  const WORK=[
-    ["Starting a business","You were choosing which market to lead with.",40],
-    ["Moving house","You were comparing the two mortgage offers.",62],
-    ["A career move","You were prepping for Thursday's interview.",25],
-  ];
-  const DEVELOP=[
-    ["First session","“Tell me about your idea.”"],
-    ["After a few sessions","“I remember what you're trying to achieve.”"],
-    ["After a few weeks","“Here's what's changed, what matters now, and what I'd do next.”"],
-  ];
+  const grow=e=>{e.target.style.height="auto";e.target.style.height=Math.max(52,e.target.scrollHeight)+"px";};
+  const chipFill={"Start a business":"I want to start a business.","Change careers":"I want to change careers.","Sort my finances":"I want to sort out my finances."};
 
   return(
-    <div style={{background:C.canvas,minHeight:"100vh",fontFamily:F,color:C.ink}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');`}</style>
+    <div className="hp">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Martian+Mono:wght@300;400;500&display=swap');
+        .hp{background:#f4f3f1;color:#16141c;min-height:100vh;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+        .hp *{box-sizing:border-box;}
+        .hp .wrap{max-width:1280px;margin:0 auto;padding:0 56px;}
+        .hp button{font-family:inherit;cursor:pointer;}
+        .hp textarea::placeholder{color:#9a94a6;}
+        .hp :focus-visible{outline:2px solid #7c3aed;outline-offset:2px;}
+        @keyframes hpbreathe{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
+        @media (prefers-reduced-motion:reduce){.hp *{animation:none!important}}
+        @media (max-width:900px){
+          .hp .wrap{padding-left:20px;padding-right:20px;}
+          .hp .r-navlinks{display:none!important;}
+          .hp .r-hero,.hp .r-band,.hp .r-seven,.hp .r-two,.hp .r-quotes{grid-template-columns:1fr!important;gap:34px!important;}
+          .hp .r-aside{border-left:none!important;padding-left:0!important;border-top:1px solid #e2dfdb;padding-top:26px;}
+          .hp .r-close{flex-direction:column;align-items:flex-start!important;gap:26px!important;}
+          .hp .r-cta{text-align:left!important;}
+          .hp .r-h1{font-size:46px!important;}
+          .hp .r-h2big{font-size:34px!important;}
+          .hp .r-h2{font-size:30px!important;}
+        }
+      `}</style>
 
-      {/* ── HERO — the invitation ── */}
-      <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"84px 20px 0":"128px 52px 0",textAlign:"center"}}>
-        <p style={{fontFamily:F,fontSize:12,fontWeight:600,letterSpacing:0.96,textTransform:"uppercase",color:C.muted,marginBottom:mobile?18:22}}>Your AI Chief of Staff</p>
-        <h1 style={{fontFamily:F,fontSize:mobile?"clamp(34px,9vw,46px)":"clamp(46px,5vw,64px)",fontWeight:300,lineHeight:1.04,letterSpacing:mobile?"-1.2px":"-2px",color:C.ink,marginBottom:20}}>
-          Build your dream.
-        </h1>
-        <p style={{fontFamily:F,fontSize:mobile?16:18,color:C.body,lineHeight:1.6,fontWeight:400,maxWidth:600,margin:"0 auto",marginBottom:mobile?26:32}}>
-          Tell Aiveree what you want. She turns it into a plan, keeps you moving, and won't let it quietly slip. It takes work, but you won't be doing it alone.
-        </p>
-
-        {/* Composer — one substantial input that begins the conversation */}
-        <div style={{textAlign:"left",background:C.card,border:`1px solid ${C.lineStrong}`,borderRadius:20,padding:mobile?"16px 16px 12px":"20px 20px 14px",boxShadow:"0 2px 4px rgba(20,16,10,.03),0 18px 50px rgba(20,16,10,.06)",transition:"box-shadow .15s,border-color .15s"}}>
-          <textarea ref={composerRef} value={idea} onChange={e=>setIdea(e.target.value)}
-            onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();go();}}}
-            placeholder="Tell me what you're thinking about…" rows={2}
-            style={{width:"100%",border:"none",outline:"none",resize:"none",background:"transparent",fontFamily:F,fontSize:mobile?16:17,lineHeight:1.5,color:C.ink,minHeight:56,padding:0}}/>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8}}>
-            <button onClick={()=>onStart(null)} style={{display:"inline-flex",alignItems:"center",gap:6,border:`1px solid ${C.line}`,background:C.card,color:C.body,borderRadius:9999,padding:"7px 13px",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:F}}>+ Add context</button>
-            <div style={{flex:1}}/>
-            <button aria-label="Voice" style={{width:38,height:38,borderRadius:9999,border:`1px solid ${C.line}`,background:C.card,color:C.body,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:15}}>🎙</button>
-            <button onClick={go} aria-label="Send" style={{width:38,height:38,borderRadius:9999,border:"none",background:C.inkWarm,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:17,fontFamily:F}}>→</button>
-          </div>
+      {/* a. Nav */}
+      <div className="wrap r-nav" style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingTop:22,paddingBottom:22}}>
+        <div style={{display:"flex",alignItems:"center",gap:11}}>
+          <span style={{width:22,height:22,borderRadius:"50%",background:"radial-gradient(circle at 32% 28%,#c4b5fd,#5b21b6 62%,#2e0f6b)",display:"block"}}/>
+          <span style={{font:"600 17px/1 'Sora',sans-serif",letterSpacing:"-.02em"}}>Aiveree</span>
         </div>
-
-        {/* Subtle starters — pre-fill the input, not navigation */}
-        <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center",marginTop:16}}>
-          {STARTERS.map((s,i)=>(
-            <button key={i} onClick={()=>{setIdea(s[1]);composerRef.current?.focus();}}
-              style={{fontFamily:F,fontSize:13,fontWeight:500,color:C.body,background:"transparent",border:`1px solid ${C.line}`,borderRadius:9999,padding:"8px 15px",cursor:"pointer"}}>{s[0]}</button>
-          ))}
+        <div className="r-navlinks" style={{display:"flex",alignItems:"center",gap:30,font:"400 14px/1 'Instrument Sans',sans-serif"}}>
+          <span style={{color:"#3d3849"}}>How it works</span>
+          <span style={{color:"#3d3849"}}>What she remembers</span>
+          <span style={{color:"#3d3849"}}>Pricing</span>
+          <button onClick={()=>onStart(null)} style={{color:"#3d3849",background:"none",border:"none",font:"400 14px/1 'Instrument Sans',sans-serif",padding:0}}>Sign in</button>
+          <button onClick={()=>onStart(null)} style={{background:"#16141c",color:"#fff",borderRadius:999,padding:"11px 20px",font:"500 14px/1 'Instrument Sans',sans-serif",border:"none"}}>Start free</button>
         </div>
-        <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:18}}>Free to start · No credit card · Works over web, voice and WhatsApp</p>
-        <button onClick={()=>setIdeaGen(true)} style={{marginTop:14,background:"transparent",border:"none",color:A,fontWeight:600,fontSize:14,cursor:"pointer",fontFamily:F,borderBottom:`1px solid ${ABL}`,paddingBottom:1}}>Not sure yet? Find your idea →</button>
       </div>
 
-      {/* ── TEAM + WHATSAPP (upfront differentiator) ── */}
-      <div style={{background:C.strong,padding:secPad,marginTop:mobile?24:40}}>
-        <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head eyebrow="Not just a chat" title="You bring the goal. Aiveree's team does the work." sub="Aiveree briefs a specialist team on what you're building. They work in the background on the research, drafts, and plans, and she reaches you on WhatsApp when there's progress or a decision that needs you." />
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:mobile?12:16,alignItems:"start"}}>
-            {/* Team working */}
-            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
-              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:6,paddingBottom:13,borderBottom:`1px solid ${C.line}`}}>
-                {mark(26)}
-                <div style={{fontFamily:F,fontWeight:600,fontSize:13,color:C.ink}}>Aiveree's team</div>
-                <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,fontFamily:F,fontSize:11,color:"#16a34a"}}><span style={{width:5,height:5,borderRadius:9999,background:"#16a34a",display:"inline-block"}}/>Working</div>
+      {/* b. Hero */}
+      <div className="wrap" style={{paddingTop:64,paddingBottom:76}}>
+        <div className="r-hero" style={{display:"grid",gridTemplateColumns:"1.12fr .88fr",gap:56,alignItems:"end"}}>
+          <div>
+            <div style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"#6f6880",marginBottom:26}}>Your AI chief of staff</div>
+            <h1 className="r-h1" style={{font:"600 78px/.96 'Sora',sans-serif",letterSpacing:"-.045em",margin:"0 0 22px"}}>Build your dream.</h1>
+            <p style={{font:"400 19px/1.55 'Instrument Sans',sans-serif",color:"#403a4e",maxWidth:"30em",margin:"0 0 34px"}}>Tell Aiveree what you want. She turns it into a plan, puts her team to work on the parts you'd never get round to, and won't let it quietly slip. It takes work. You won't be doing it alone.</p>
+            <div style={{background:"#fff",border:"1px solid #e2dfdb",borderRadius:18,padding:"20px 20px 14px",boxShadow:"0 2px 3px rgba(20,16,32,.03),0 22px 44px rgba(20,16,32,.07)",maxWidth:620}}>
+              <textarea ref={composerRef} value={idea} onChange={e=>{setIdea(e.target.value);grow(e);}} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();go();}}} rows={1} placeholder="Tell me what you're thinking about…" style={{width:"100%",border:"none",outline:"none",resize:"none",background:"transparent",font:"400 17px/1.5 'Instrument Sans',sans-serif",color:"#16141c",minHeight:52,padding:0,display:"block"}}/>
+              <div style={{display:"flex",alignItems:"center",gap:9,marginTop:10}}>
+                <button style={{border:"1px solid #e7e4e0",borderRadius:999,padding:"8px 14px",font:"400 13px/1 'Instrument Sans',sans-serif",color:"#5c5668",background:"none"}}>Add a file</button>
+                <button style={{border:"1px solid #e7e4e0",borderRadius:999,padding:"8px 14px",font:"400 13px/1 'Instrument Sans',sans-serif",color:"#5c5668",background:"none"}}>Speak instead</button>
+                <span style={{flex:1}}/>
+                <button onClick={go} aria-label="Send" style={{width:42,height:42,borderRadius:999,background:"#5b21b6",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",font:"500 18px/1 'Sora',sans-serif",border:"none"}}>→</button>
               </div>
-              {[
-                ["Market research","3 competitors mapped","done"],
-                ["First plan","drafted and ready to read","done"],
-                ["Options","comparison being prepared","working"],
-              ].map((r,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 0",borderBottom:i<2?`1px solid ${C.line}`:"none"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontFamily:F,fontSize:13.5,fontWeight:500,color:C.ink}}>{r[0]}</div>
-                    <div style={{fontFamily:F,fontSize:12,color:C.mutedSoft}}>{r[1]}</div>
-                  </div>
-                  {r[2]==="done"
-                    ?<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:"#16a34a",background:"#f0fdf4",border:"1px solid #c7ecd0",borderRadius:9999,padding:"3px 10px"}}>Done</span>
-                    :<span style={{fontFamily:F,fontSize:11,fontWeight:600,color:C.muted,background:C.soft,border:`1px solid ${C.line}`,borderRadius:9999,padding:"3px 10px"}}>Working</span>}
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
+              {Object.keys(chipFill).map(c=>(
+                <button key={c} onClick={()=>{setIdea(chipFill[c]);composerRef.current?.focus();}} style={{border:"1px solid #ddd9d4",borderRadius:999,padding:"9px 15px",font:"400 13.5px/1 'Instrument Sans',sans-serif",color:"#403a4e",background:"none"}}>{c}</button>
+              ))}
+              <button onClick={()=>setIdeaGen(true)} style={{border:"1px solid #ddd9d4",borderRadius:999,padding:"9px 15px",font:"400 13.5px/1 'Instrument Sans',sans-serif",color:"#403a4e",background:"none"}}>I don't know yet</button>
+            </div>
+            <div style={{font:"400 12.5px/1 'Instrument Sans',sans-serif",color:"#8b8496",marginTop:20}}>Free to start · No card · Web, voice and WhatsApp</div>
+          </div>
+
+          <div className="r-aside" style={{borderLeft:"1px solid #e2dfdb",paddingLeft:40}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:22}}>
+              <span style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"#6f6880"}}>What landed this week</span>
+              <span style={{flex:1}}/>
+              <span style={{font:"400 10.5px/1 'Martian Mono',monospace",color:"#9a94a6"}}>4 FILES</span>
+            </div>
+            <div>
+              {[["TUE","Margin scan · 18 products","Every one clears £6+ net. Three flagged as traps.",false],["THU","The £400 first-buy plan","Two strong lines, break-even at 31 units, £43 held back.",false],["THU","Supplier email, in your voice","Ready to send. She'll nudge you if you don't.",false],["SUN","VAT, in plain English","One page. You don't need to register yet — and here's when you will.",true]].map((r,i)=>(
+                <div key={i} style={{padding:"15px 0",borderTop:"1px solid #e0ddd8",borderBottom:r[3]?"1px solid #e0ddd8":"none",display:"flex",gap:14,alignItems:"baseline"}}>
+                  <span style={{font:"400 10px/1.5 'Martian Mono',monospace",color:"#9a94a6",flex:"none",width:34}}>{r[0]}</span>
+                  <div><div style={{font:"500 15.5px/1.35 'Sora',sans-serif",letterSpacing:"-.01em"}}>{r[1]}</div><div style={{font:"400 13px/1.5 'Instrument Sans',sans-serif",color:"#5c5668",marginTop:4}}>{r[2]}</div></div>
                 </div>
               ))}
             </div>
-            {/* WhatsApp */}
-            <div style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:18,padding:mobile?"18px":"20px 22px"}}>
-              <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:14}}>
-                <div style={{width:28,height:28,borderRadius:8,background:"#f0fdf4",border:"1px solid #bbf7d0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>💬</div>
-                <div style={{fontFamily:F,fontSize:12,fontWeight:600,color:"#16a34a"}}>WhatsApp · Aiveree</div>
-                <div style={{marginLeft:"auto",fontFamily:F,fontSize:11,color:C.mutedSoft}}>now</div>
-              </div>
-              <div style={{background:"#f0fdf4",border:"1px solid #d6f0dd",borderRadius:"4px 14px 14px 14px",padding:"12px 14px",fontFamily:F,fontSize:mobile?14:14.5,color:C.ink,lineHeight:1.55}}>
-                Morning 👋 The team's mapped your market and drafted a first plan. One thing needs you: which segment to lead with? I've laid out the trade-offs.
-              </div>
-              <p style={{fontFamily:F,fontSize:12.5,color:C.mutedSoft,marginTop:12,lineHeight:1.5}}>She reaches you where you are, and you stay in control of every call.</p>
-            </div>
+            <div style={{marginTop:20,font:"400 13.5px/1.55 'Instrument Sans',sans-serif",color:"#403a4e"}}>Real documents, not summaries. <button onClick={()=>onStart(null)} style={{background:"none",border:"none",padding:0,font:"inherit",color:"inherit",borderBottom:"1px solid rgba(91,33,182,.35)"}}>Open one →</button></div>
           </div>
         </div>
       </div>
 
-      {/* ── CONTINUE WITH YOUR CHIEF OF STAFF (illustrative preview) ── */}
-      <div style={{padding:secPad}}>
-        <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head eyebrow="What it becomes" title="It grows into your Chief of Staff." sub="Whatever you bring, whether it's a business, a move, a career step, or a decision, Aiveree keeps the thread and picks up exactly where you left off." />
-          <p style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:14}}>Continue with your Chief of Staff</p>
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
-            {WORK.map((w,i)=>(
-              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"18px":"20px 20px",display:"flex",flexDirection:"column",minHeight:160}}>
-                <div style={{fontFamily:F,fontSize:15,fontWeight:600,color:C.ink,marginBottom:7,letterSpacing:-0.2}}>{w[0]}</div>
-                <div style={{fontFamily:F,fontSize:13,color:C.body,lineHeight:1.5,marginBottom:16}}>{w[1]}</div>
-                <div style={{marginTop:"auto"}}>
-                  <div style={{height:4,borderRadius:9999,background:C.line,overflow:"hidden",marginBottom:12}}><div style={{height:"100%",width:`${w[2]}%`,borderRadius:9999,background:A}}/></div>
-                  <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:A}}>Continue →</span>
+      {/* c. Dark band */}
+      <div style={{background:"#16141c",color:"#fff"}}>
+        <div className="wrap" style={{paddingTop:72,paddingBottom:72}}>
+          <div className="r-band" style={{display:"grid",gridTemplateColumns:".92fr 1.08fr",gap:56,alignItems:"start"}}>
+            <div>
+              <div style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"#a99df0",marginBottom:22}}>Not a chat window</div>
+              <h2 className="r-h2" style={{font:"600 46px/1.04 'Sora',sans-serif",letterSpacing:"-.035em",margin:"0 0 18px",maxWidth:"16em"}}>You bring the goal. Her team does the work.</h2>
+              <p style={{font:"400 17px/1.6 'Instrument Sans',sans-serif",color:"rgba(255,255,255,.62)",maxWidth:"34em",margin:"0 0 26px"}}>Aiveree briefs specialists on what you're building. They research, draft and model while you're at work, and she comes back with something you can open — not a summary of what she could do.</p>
+              <div style={{background:"#1e1a29",border:"1px solid rgba(255,255,255,.08)",borderRadius:16,padding:20,maxWidth:420}}>
+                <div style={{display:"flex",alignItems:"center",gap:9,paddingBottom:14,borderBottom:"1px solid rgba(255,255,255,.08)",marginBottom:4}}>
+                  <span style={{width:18,height:18,borderRadius:"50%",background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)",animation:"hpbreathe 5s ease-in-out infinite",display:"block"}}/>
+                  <span style={{font:"500 12.5px/1 'Sora',sans-serif"}}>Aiveree's team</span>
+                  <span style={{marginLeft:"auto",font:"400 10px/1 'Martian Mono',monospace",color:"#f0a03c"}}>WORKING</span>
                 </div>
+                <div style={{padding:"13px 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div style={{font:"400 13.5px/1.35 'Instrument Sans',sans-serif"}}>Product margin scan</div><div style={{font:"400 10px/1 'Martian Mono',monospace",color:"#6ee7a8",marginTop:6}}>DONE · 18 FOUND</div></div>
+                <div style={{padding:"13px 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}><div style={{font:"400 13.5px/1.35 'Instrument Sans',sans-serif"}}>First-buy plan, £400 budget</div><div style={{font:"400 10px/1 'Martian Mono',monospace",color:"#6ee7a8",marginTop:6}}>DONE · 4 PAGES</div></div>
+                <div style={{padding:"13px 0"}}><div style={{font:"400 13.5px/1.35 'Instrument Sans',sans-serif"}}>VAT &amp; sole trader setup</div><div style={{font:"400 10px/1 'Martian Mono',monospace",color:"#f0a03c",marginTop:6}}>IN MOTION · 68%<span style={{display:"inline-block",width:54,height:3,background:"rgba(255,255,255,.12)",marginLeft:8,verticalAlign:"middle",borderRadius:2}}><span style={{display:"block",width:"68%",height:"100%",background:"#f0a03c",borderRadius:2}}/></span></div></div>
               </div>
-            ))}
-          </div>
-
-          {/* Aiveree noticed */}
-          <div style={{marginTop:20,background:`linear-gradient(180deg,${AB},#fff)`,border:`1px solid ${ABL}`,borderRadius:16,padding:mobile?"18px":"22px 24px",display:"flex",gap:14,alignItems:"flex-start"}}>
-            <div style={{width:30,height:30,borderRadius:9,background:C.card,border:`1px solid ${ABL}`,display:"flex",alignItems:"center",justifyContent:"center",color:A,flexShrink:0,fontSize:15}}>✦</div>
-            <div style={{flex:1}}>
-              <div style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:A,opacity:0.85,marginBottom:7}}>Aiveree noticed</div>
-              <p style={{fontFamily:F,fontSize:mobile?14.5:15,color:C.ink,lineHeight:1.55,margin:0,marginBottom:14,maxWidth:"62ch"}}>Your <strong style={{fontWeight:600}}>new business</strong> has moved from exploring the idea to shaping the plan. The next decision looks like which market to lead with.</p>
-              <div style={{display:"flex",gap:9}}>
-                <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:"#fff",background:A,borderRadius:9999,padding:"8px 16px"}}>Discuss</span>
-                <span style={{fontFamily:F,fontSize:13,fontWeight:600,color:C.body,border:`1px solid ${C.lineStrong}`,borderRadius:9999,padding:"8px 16px"}}>Dismiss</span>
+            </div>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+                <span style={{width:9,height:9,borderRadius:"50%",background:"#6ee7a8"}}/>
+                <span style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"rgba(255,255,255,.5)"}}>One week on WhatsApp</span>
               </div>
+              <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:520}}>
+                {[["in","Morning. The margin scan's done — 18 products clear £6+. Your £400 buys two strong lines to start.","TUE 07:41"],["out","can you just pick them","TUE 07:52"],["in","Done — kitchen and pet. Plan's in your deck, supplier email drafted. You just need to press send.","TUE 08:14"],["in","Still sitting in drafts. Want me to send it as it is, or shall we sharpen the first line together?","SUN 10:30"]].map((m,i)=>(
+                  <div key={i} style={m[0]==="in"?{alignSelf:"flex-start",maxWidth:"88%",background:"#252036",borderRadius:"3px 16px 16px 16px",padding:"15px 17px"}:{alignSelf:"flex-end",maxWidth:"80%",background:"#f4f3f1",color:"#16141c",borderRadius:"16px 16px 3px 16px",padding:"15px 17px"}}>
+                    <div style={{font:"400 15px/1.55 'Instrument Sans',sans-serif",color:m[0]==="in"?"#f3f1f7":"#16141c"}}>{m[1]}</div>
+                    <div style={{font:"400 9.5px/1 'Martian Mono',monospace",color:m[0]==="in"?"rgba(255,255,255,.35)":"#a9a2b3",marginTop:9}}>{m[2]}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:14}}>
+                <span style={{border:"1px solid rgba(255,255,255,.18)",borderRadius:999,padding:"9px 15px",font:"400 13.5px/1 'Instrument Sans',sans-serif",color:"rgba(255,255,255,.85)"}}>Send it</span>
+                <span style={{border:"1px solid rgba(255,255,255,.18)",borderRadius:999,padding:"9px 15px",font:"400 13.5px/1 'Instrument Sans',sans-serif",color:"rgba(255,255,255,.85)"}}>Sharpen it together</span>
+              </div>
+              <p style={{font:"400 13px/1.6 'Instrument Sans',sans-serif",color:"rgba(255,255,255,.4)",margin:"18px 0 0",maxWidth:"44em"}}>She reaches you where you already are, and every call stays yours.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── A RELATIONSHIP THAT DEVELOPS ── */}
-      <div style={{background:C.strong,padding:secPad}}>
-        <div style={{maxWidth:1000,margin:"0 auto"}}>
-          <Head title="A relationship that develops." sub="Aiveree isn't a tool you configure. It's a working understanding of what you're trying to achieve, and it gets sharper over time." />
-          <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"repeat(3,1fr)",gap:mobile?12:16}}>
-            {DEVELOP.map((d,i)=>(
-              <div key={i} style={{background:C.card,border:`1px solid ${C.line}`,borderRadius:16,padding:mobile?"20px":"24px 24px"}}>
-                <div style={{fontFamily:F,fontSize:11,fontWeight:600,letterSpacing:0.7,textTransform:"uppercase",color:C.mutedSoft,marginBottom:12}}>{d[0]}</div>
-                <div style={{fontFamily:F,fontSize:mobile?16:18,fontWeight:400,color:C.ink,lineHeight:1.45,letterSpacing:-0.2}}>{d[1]}</div>
-              </div>
+      {/* d. Seven days on */}
+      <div className="wrap" style={{paddingTop:72,paddingBottom:68}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:18,marginBottom:34}}>
+          <span style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"#6f6880"}}>Seven days on</span>
+          <span style={{flex:1,height:1,background:"#e2dfdb"}}/>
+          <span style={{font:"400 12.5px/1 'Instrument Sans',sans-serif",color:"#8b8496"}}>Week one is usually the week people give up</span>
+        </div>
+        <div className="r-seven" style={{display:"grid",gridTemplateColumns:".9fr 1.1fr",gap:56,alignItems:"start"}}>
+          <div>
+            <div className="r-two" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:"#e2dfdb",borderTop:"1px solid #e2dfdb",borderBottom:"1px solid #e2dfdb",marginBottom:26}}>
+              <div style={{background:"#f4f3f1",padding:"18px 16px 20px 0"}}><div style={{font:"400 9.5px/1 'Martian Mono',monospace",color:"#9a94a6",marginBottom:11}}>MONDAY</div><div style={{font:"400 17px/1.4 'Instrument Sans',sans-serif",color:"#6f6880"}}>An idea, £400, and no clue what to sell</div></div>
+              <div style={{background:"#f4f3f1",padding:"18px 0 20px 18px"}}><div style={{font:"400 9.5px/1 'Martian Mono',monospace",color:"#2f8f5b",marginBottom:11}}>SUNDAY</div><div style={{font:"400 17px/1.4 'Instrument Sans',sans-serif",color:"#26222e"}}>Two products chosen, order costed, first email sent</div></div>
+            </div>
+            <h2 className="r-h2" style={{font:"600 34px/1.1 'Sora',sans-serif",letterSpacing:"-.03em",margin:"0 0 12px",maxWidth:"20em"}}>A week that actually moves.</h2>
+            <p style={{font:"400 16px/1.6 'Instrument Sans',sans-serif",color:"#403a4e",maxWidth:"34em",margin:0}}>Not motivation. Four numbers you didn't have on Monday, and two hours of your own time to get them.</p>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",borderTop:"1px solid #e2dfdb"}}>
+            {[["18","products checked for real margin, three ruled out"],["£7.40","net per unit on the line she'd start with"],["31","units to break even — a number, not a feeling"],["2 hrs","of your own time, across two evenings"]].map((s,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"baseline",gap:20,padding:"20px 0",borderBottom:"1px solid #e2dfdb"}}><span style={{font:"600 34px/1 'Sora',sans-serif",letterSpacing:"-.035em",flex:"none",width:96}}>{s[0]}</span><span style={{font:"400 15.5px/1.5 'Instrument Sans',sans-serif",color:"#403a4e"}}>{s[1]}</span></div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ── CLOSING ── */}
-      <div style={{background:C.ink,padding:mobile?"64px 20px":"104px 52px"}}>
-        <div style={{maxWidth:720,margin:"0 auto",textAlign:"center"}}>
-          <h2 style={{fontFamily:F,fontWeight:300,fontSize:mobile?28:42,color:"#fff",letterSpacing:mobile?"-0.8px":"-1.4px",lineHeight:1.08,marginBottom:16}}>A goal without a plan is just a wish.</h2>
-          <p style={{fontFamily:F,fontSize:mobile?15:17,color:"rgba(255,255,255,0.62)",fontWeight:400,lineHeight:1.6,maxWidth:520,margin:"0 auto",marginBottom:mobile?26:32}}>Let's make yours real. Tell Aiveree what you want, and start building it today.</p>
-          <button onClick={()=>onStart(null)} style={{background:"#fff",border:"none",borderRadius:9999,padding:mobile?"14px 28px":"15px 34px",color:C.ink,fontWeight:600,cursor:"pointer",fontSize:mobile?15:16,fontFamily:F}}>Start with Aiveree</button>
-          <p style={{fontFamily:F,fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:16}}>Free to start · No credit card · Private by default</p>
+      {/* e. Who did what */}
+      <div className="wrap" style={{paddingBottom:72}}>
+        <div style={{display:"flex",alignItems:"baseline",gap:18,marginBottom:26}}>
+          <span style={{font:"400 11px/1 'Martian Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",color:"#6f6880"}}>Who did what</span>
+          <span style={{flex:1,height:1,background:"#e2dfdb"}}/>
         </div>
+        <div className="r-two" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:40,alignItems:"start"}}>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:16}}><span style={{width:16,height:16,borderRadius:"50%",background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)"}}/><span style={{font:"500 14px/1 'Sora',sans-serif"}}>Aiveree</span><span style={{font:"400 10px/1 'Martian Mono',monospace",color:"#9a94a6",marginLeft:6}}>THE HOURS</span></div>
+            <div style={{borderTop:"1px solid #e2dfdb"}}>
+              {["Checked 18 products against live buy-box prices","Costed the £400 two ways and recommended the safer one","Wrote the supplier email in your voice","Read the VAT rules so you didn't have to"].map((t,i,a)=>(
+                <div key={i} style={{padding:"15px 0",borderBottom:i<a.length-1?"1px solid #e6e3df":"none",font:"400 15px/1.5 'Instrument Sans',sans-serif",color:"#2c2833"}}>{t}</div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:16}}><span style={{width:16,height:16,borderRadius:"50%",background:"#16141c"}}/><span style={{font:"500 14px/1 'Sora',sans-serif"}}>You</span><span style={{font:"400 10px/1 'Martian Mono',monospace",color:"#9a94a6",marginLeft:6}}>THE DECISIONS</span></div>
+            <div style={{borderTop:"1px solid #e2dfdb"}}>
+              {[["Said yes to the kitchen line","· 40 SEC"],["Pressed send","· 1 MIN"],["Made the call on business structure",""],["Decided how far to push before Christmas",""]].map((r,i,a)=>(
+                <div key={i} style={{padding:"15px 0",borderBottom:i<a.length-1?"1px solid #e6e3df":"none",font:"400 15px/1.5 'Instrument Sans',sans-serif",color:"#26222e"}}>{r[0]} {r[1]&&<span style={{font:"400 10px/1 'Martian Mono',monospace",color:"#9a94a6"}}>{r[1]}</span>}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{font:"400 17px/1.6 'Instrument Sans',sans-serif",color:"#403a4e",marginTop:28,maxWidth:"40em"}}>She takes the hours. You keep the decisions — that's the deal, and it's why this works when you have two evenings a week.</div>
       </div>
 
-      {/* ── FOOTER ── */}
-      <div style={{borderTop:`1px solid ${C.line}`,padding:mobile?"24px 20px":"28px 52px",display:"flex",justifyContent:"space-between",alignItems:"center",maxWidth:1120,margin:"0 auto",flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {mark(24)}
-          <span style={{fontFamily:F,fontSize:13,color:C.muted,fontWeight:500}}>Aiveree</span>
+      {/* f. Close */}
+      <div className="wrap" style={{paddingBottom:76}}>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:30,gap:20,flexWrap:"wrap"}}>
+          <h2 className="r-h2" style={{font:"600 40px/1.06 'Sora',sans-serif",letterSpacing:"-.035em",margin:0,maxWidth:"22em"}}>And it gets sharper the longer you work together.</h2>
+          <button onClick={()=>onStart(null)} style={{font:"400 13.5px/1 'Instrument Sans',sans-serif",color:"#5b21b6",background:"none",border:"none"}}>See the deck →</button>
         </div>
-        <span style={{fontFamily:F,fontSize:13,color:C.mutedSoft,fontWeight:400}}>© 2026 Aiveree · Your AI Chief of Staff</span>
+        <div className="r-quotes" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:1,background:"#e2dfdb",borderTop:"1px solid #e2dfdb",borderBottom:"1px solid #e2dfdb"}}>
+          {[["WEEK ONE","“Tell me what you're trying to build.”","28px 28px 30px 0"],["WEEK FOUR","“Your £400 is fully working. Here's what profit buys next.”","28px 28px 30px"],["MONTH THREE","“You restock late every time term starts. Shall I order a week early?”","28px 0 30px 28px"]].map((q,i)=>(
+            <div key={i} style={{background:"#f4f3f1",padding:q[2]}}><div style={{font:"400 10.5px/1 'Martian Mono',monospace",letterSpacing:".1em",color:"#8b8496",marginBottom:14}}>{q[0]}</div><div style={{font:"400 20px/1.4 'Instrument Sans',sans-serif",color:"#26222e"}}>{q[1]}</div></div>
+          ))}
+        </div>
+        <div className="r-close" style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginTop:64,gap:40}}>
+          <h2 className="r-h2big" style={{font:"600 56px/1.02 'Sora',sans-serif",letterSpacing:"-.04em",margin:0,maxWidth:"20em"}}>A goal without a plan is just a wish.</h2>
+          <div className="r-cta" style={{flex:"none",textAlign:"right"}}>
+            <button onClick={()=>onStart(null)} style={{background:"#5b21b6",color:"#fff",borderRadius:999,padding:"15px 28px",font:"500 15.5px/1 'Instrument Sans',sans-serif",border:"none",display:"inline-block"}}>Start with Aiveree</button>
+            <div style={{font:"400 12px/1 'Instrument Sans',sans-serif",color:"#8b8496",marginTop:12}}>Free · No card · Private by default</div>
+          </div>
+        </div>
       </div>
     </div>
   );
