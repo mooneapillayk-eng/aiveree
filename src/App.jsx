@@ -997,6 +997,7 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const[showCreditGate,setShowCreditGate]=useState(false);
   const[wsState,setWsState]=useState({});// {idx:{status,result}}
   const[viewingWs,setViewingWs]=useState(null);// idx being viewed
+  const[memories,setMemories]=useState(null);// real "what Aiveree remembers" data
   const wsStartedRef=useRef(false);
   const initGreet=`Hi ${user?.name||"there"}! I've read everything you shared and briefed my team. ${de} Let's get to work. Tap anything below, or just ask me directly.`;
   const[chatMsgs,setChatMsgs]=useState([{role:"assistant",content:initGreet}]);
@@ -1017,6 +1018,12 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const sayGreeting=()=>{if(!greetedRef.current){greetedRef.current=true;speak(initGreet);}};
   useEffect(()=>{if(dash)sayGreeting();},[dash]);// eslint-disable-line
   useEffect(()=>{const t=setTimeout(sayGreeting,6000);return()=>clearTimeout(t);},[]);// eslint-disable-line
+
+  // Load the real "what Aiveree remembers" data (same source as the Memory tab).
+  useEffect(()=>{
+    if(!user?.id){setMemories([]);return;}
+    listMemories(6).then(m=>setMemories(Array.isArray(m)?m:[])).catch(()=>setMemories([]));
+  },[user?.id]);
 
   // Auto-send when voice result arrives
   useEffect(()=>{
@@ -1270,6 +1277,12 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
   const liveStreams=streams.filter(x=>x.st?.status!=="complete");
   const goalText=(intel?.goal||"").split(" | ")[0];
   const memItems=(intel?.goal||"").split(" | ").slice(1).filter(Boolean);
+  // "What Aiveree remembers": prefer the live memory store; fall back to what
+  // was shared at onboarding until the store has anything in it.
+  const memRelDate=(s)=>{try{const days=Math.floor((Date.now()-new Date(s))/86400000);return days<=0?"TODAY":days===1?"YESTERDAY":days<7?`${days} DAYS AGO`:new Date(s).toLocaleDateString("en-GB",{day:"numeric",month:"short"}).toUpperCase();}catch{return"";}};
+  const memRows=(memories&&memories.length>0)
+    ? memories.map(m=>({text:m.content,tag:[(m.memory_type||"remembered").toUpperCase(),memRelDate(m.created_at)].filter(Boolean).join(" · ")}))
+    : (memItems.length>0?memItems:[goalText]).filter(Boolean).map((t,i)=>({text:t,tag:(i===0&&memItems.length===0)?"YOUR GOAL":"FROM ONBOARDING"}));
   const caplist=(d.suggested_capabilities?.length>0?d.suggested_capabilities:caps)||[];
   const LAB={fontFamily:DECK_MONO,fontSize:10,lineHeight:1,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,.35)"};
   const downloadAll=()=>doneStreams.forEach(({w,i})=>downloadText(`${safeFileName(w.title,"aiveree-deliverable")}.md`,wsState[i]?.result||""));
@@ -1553,17 +1566,22 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
                 </div>
               </div>
             )}
-            {/* what she remembers */}
+            {/* what Aiveree remembers */}
             <div style={{padding:mobile?"22px 18px":"26px 24px"}}>
-              <div style={{...LAB,marginBottom:16}}>What she remembers</div>
-              <div style={{borderTop:"1px solid rgba(255,255,255,.07)"}}>
-                {(memItems.length>0?memItems:[goalText]).filter(Boolean).map((m,i,arr)=>(
-                  <div key={i} style={{padding:"13px 0",borderBottom:i<arr.length-1?"1px solid rgba(255,255,255,.07)":"none"}}>
-                    <div style={{fontSize:13.5,lineHeight:1.45,fontFamily:DECK_SANS,color:"rgba(255,255,255,.78)"}}>{m}</div>
-                    <div style={{...LAB,color:"rgba(255,255,255,.3)",marginTop:7}}>{i===0&&memItems.length===0?"YOUR GOAL":"FROM ONBOARDING"}</div>
-                  </div>
-                ))}
-              </div>
+              <div style={{...LAB,marginBottom:16}}>What Aiveree remembers</div>
+              {memories===null?(
+                <div style={{fontSize:13,fontFamily:DECK_SANS,color:"rgba(255,255,255,.35)"}}>Loading…</div>
+              ):(
+                <div style={{borderTop:"1px solid rgba(255,255,255,.07)"}}>
+                  {memRows.map((m,i,arr)=>(
+                    <div key={i} style={{padding:"13px 0",borderBottom:i<arr.length-1?"1px solid rgba(255,255,255,.07)":"none"}}>
+                      <div style={{fontSize:13.5,lineHeight:1.45,fontFamily:DECK_SANS,color:"rgba(255,255,255,.78)"}}>{m.text}</div>
+                      <div style={{...LAB,color:"rgba(255,255,255,.3)",marginTop:7}}>{m.tag}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{fontSize:12.5,fontFamily:DECK_SANS,color:"#a99df0",marginTop:16}}>Edit or forget any of this from the Memory tab →</div>
             </div>
           </div>
         </div>
