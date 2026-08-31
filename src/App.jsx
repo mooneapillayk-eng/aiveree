@@ -968,6 +968,21 @@ function downloadText(filename, text){
 }
 const safeFileName=(s,fallback)=>((s||"").replace(/[^\w -]/g,"").trim().slice(0,60)||fallback);
 
+// ─── COMMAND DECK VISUAL LANGUAGE ─────────────────────────────────────────────
+// Dark "command deck" tokens + animations from the Claude Design handoff (2b).
+// Type system: Sora (numbers/headings) · Instrument Sans (body) · Martian Mono (labels).
+const DECK_SANS="'Instrument Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+const DECK_DISP="'Sora',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif";
+const DECK_MONO="'Martian Mono',ui-monospace,SFMono-Regular,Menlo,monospace";
+const DECK_ANIM=`
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Sora:wght@400;500;600&family=Martian+Mono:wght@400;500&display=swap');
+@keyframes deckBreathe{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.06);opacity:1}}
+@keyframes deckHalo{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.18);opacity:.15}}
+@keyframes deckBlip{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes deckSweep{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}
+@media (prefers-reduced-motion:reduce){.deck-anim{animation:none!important}}
+`;
+
 // ─── COMMAND CENTRE ───────────────────────────────────────────────────────────
 function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const domainId=intel.domain_id||"business";
@@ -987,6 +1002,7 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const[chatMsgs,setChatMsgs]=useState([{role:"assistant",content:initGreet}]);
   const[chatInp,setChatInp]=useState("");
   const[chatBusy,setChatBusy]=useState(false);
+  const[chatOpen,setChatOpen]=useState(false);
   const chatRef=useRef(null);
   const{speak,muted,toggleMute,stop}=useTTS();
 
@@ -1193,6 +1209,7 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
     const text=(ot||chatInp).trim();
     if(!text||chatBusy)return;
     if(credits<=0){setShowCreditGate(true);return;}
+    setChatOpen(true);
     stop();
     const next=[...chatMsgs,{role:"user",content:text}];
     setChatMsgs(next);setChatInp("");setChatBusy(true);
@@ -1223,16 +1240,21 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
 
   if(dashLoading){
     return(
-      <div style={{minHeight:"100vh",background:"#fdfdfd",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{minHeight:"100vh",background:"#0b0912",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <style>{DECK_ANIM}</style>
         <div style={{textAlign:"center",maxWidth:420}}>
-          <div style={{width:48,height:48,borderRadius:13,background:`${dc}15`,border:`1px solid ${dc}30`,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:22,marginBottom:16}}>{de}</div>
-          <h2 style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:mobile?18:24,color:"#000",marginBottom:7}}>{gr}, {user?.name||"there"}.</h2>
-          <p style={{color:"#aaa",fontSize:13,lineHeight:1.7,marginBottom:22,fontWeight:300,fontFamily:"Inter,sans-serif"}}>Setting up your workspace and getting my team started on it.</p>
-          <div style={{display:"flex",flexDirection:"column",gap:6,maxWidth:280,margin:"0 auto"}}>
+          <div style={{position:"relative",width:132,height:132,margin:"0 auto 22px"}}>
+            <div className="deck-anim" style={{position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,58,237,.45),rgba(124,58,237,0) 68%)",animation:"deckHalo 6s ease-in-out infinite"}}/>
+            <div className="deck-anim" style={{position:"absolute",inset:26,borderRadius:"50%",background:"radial-gradient(circle at 34% 28%,#e9e4ff,#8b5cf6 42%,#4c1d95 78%,#2a0f5e)",boxShadow:"0 0 44px rgba(139,92,246,.55),inset 0 0 26px rgba(255,255,255,.22)",animation:"deckBreathe 5s ease-in-out infinite"}}/>
+            <div style={{position:"absolute",inset:8,borderRadius:"50%",border:"1px solid rgba(167,139,250,.22)"}}/>
+          </div>
+          <h2 style={{fontFamily:DECK_DISP,fontWeight:600,fontSize:mobile?18:22,color:"#efedf5",marginBottom:9,letterSpacing:"-0.02em"}}>{gr}, {user?.name||"there"}.</h2>
+          <p style={{color:"rgba(255,255,255,.42)",fontSize:13,lineHeight:1.7,marginBottom:22,fontFamily:DECK_SANS}}>Setting up your command deck and getting my team started on it.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:6,maxWidth:290,margin:"0 auto"}}>
             {["Reading your goal...","Briefing my team...","Starting the first workstreams...","Working out your next best move..."].map((s,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#fafafa",border:"1px solid #efefef",borderRadius:8}}>
-                <div style={{width:5,height:5,borderRadius:3,background:dc,animation:`pulse 1.5s ease ${i*.4}s infinite`}}/>
-                <span style={{fontSize:12,color:"#bbb",fontFamily:"Inter,sans-serif",fontWeight:300}}>{s}</span>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 13px",background:"#151021",border:"1px solid rgba(255,255,255,.07)",borderRadius:10}}>
+                <div style={{width:5,height:5,borderRadius:3,background:"#a99df0",animation:`pulse 1.5s ease ${i*.4}s infinite`}}/>
+                <span style={{fontSize:12,color:"rgba(255,255,255,.5)",fontFamily:DECK_SANS}}>{s}</span>
               </div>
             ))}
           </div>
@@ -1242,252 +1264,306 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
   }
 
   const d=dash||{};
+  const pct=Math.round((d.momentum?.score||0.42)*100);
+  const streams=(d.active_workstreams||[]).map((w,i)=>({w,i,st:wsState[i]}));
+  const doneStreams=streams.filter(x=>x.st?.status==="complete");
+  const liveStreams=streams.filter(x=>x.st?.status!=="complete");
+  const goalText=(intel?.goal||"").split(" | ")[0];
+  const memItems=(intel?.goal||"").split(" | ").slice(1).filter(Boolean);
+  const caplist=(d.suggested_capabilities?.length>0?d.suggested_capabilities:caps)||[];
+  const LAB={fontFamily:DECK_MONO,fontSize:10,lineHeight:1,letterSpacing:"0.12em",textTransform:"uppercase",color:"rgba(255,255,255,.35)"};
+  const downloadAll=()=>doneStreams.forEach(({w,i})=>downloadText(`${safeFileName(w.title,"aiveree-deliverable")}.md`,wsState[i]?.result||""));
 
   return(
-    <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+    <div style={{minHeight:"100vh",background:"#0b0912",color:"#efedf5",fontFamily:DECK_SANS}}>
+      <style>{DECK_ANIM}</style>
+
       {showCreditGate&&<CreditGate onClose={()=>setShowCreditGate(false)}/>}
-      <div style={{maxWidth:1200,margin:"0 auto",padding:mobile?"18px 14px 80px":"28px 28px 60px",display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 360px",gap:22,alignItems:"start"}}>
 
-        {/* ── MAIN ── */}
-        <div>
-          {/* Header */}
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18,flexWrap:"wrap",gap:8}}>
-            <div>
-              <h1 style={{fontFamily:"Inter,sans-serif",fontSize:mobile?18:26,fontWeight:300,letterSpacing:-0.5,color:"#000",marginBottom:3}}>{gr}, {user?.name||"there"}.</h1>
-              <div style={{fontSize:12,color:dc,fontFamily:"Inter,sans-serif"}}>{de} {dl} workspace</div>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:7}}>
-              <div style={{background:"#fafafa",border:"1px solid #efefef",borderRadius:20,padding:"3px 11px",fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>{credits} tasks left</div>
-              <button onClick={onNewProject} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"6px 12px",fontSize:11,color:"#333",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>+ New workspace</button>
-            </div>
+      {/* Active capability runner — overlay */}
+      {activeCap&&(
+        <div onClick={()=>setActiveCap(null)} style={{position:"fixed",inset:0,background:"rgba(6,4,12,0.72)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#151021",border:"1px solid rgba(255,255,255,.1)",borderRadius:16,maxWidth:560,width:"100%",maxHeight:"84vh",overflow:"auto",padding:mobile?"18px 16px":"22px 24px",boxShadow:"0 24px 70px rgba(0,0,0,0.55)"}}>
+            <CapabilityRunner cap={activeCap} intel={intel} domainColor="#7c3aed" onClose={()=>setActiveCap(null)} onCreditUsed={onCreditUsed} credits={credits}/>
           </div>
+        </div>
+      )}
 
-          {/* Goal */}
-          {intel?.goal&&(
-            <div style={{background:"#fff",border:"1px solid #e8e8e8",borderLeft:`2px solid ${dc}`,borderRadius:10,padding:mobile?"11px 13px":"14px 18px",marginBottom:16}}>
-              <div style={{fontSize:9,fontWeight:500,color:dc,textTransform:"uppercase",letterSpacing:1.5,marginBottom:4,fontFamily:"Inter,sans-serif"}}>Your goal</div>
-              <p style={{fontSize:mobile?13:15,fontWeight:400,color:"#000",lineHeight:1.6,margin:0,fontFamily:"Inter,sans-serif"}}>{intel.goal.split(" | ")[0]}</p>
-            </div>
-          )}
-
-          {/* ── 1. MOMENTUM OVERVIEW ── */}
-          {d.momentum&&(
-            <div style={{background:"linear-gradient(135deg,#faf9ff,#fff)",border:"1px solid #ece8fb",borderRadius:14,padding:mobile?"15px 16px":"20px 22px",marginBottom:14}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:11}}>
-                <div style={{width:26,height:26,borderRadius:7,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:600,fontFamily:"Inter,sans-serif"}}>Ai</div>
-                <span style={{fontWeight:500,fontSize:12,color:"#000",fontFamily:"Inter,sans-serif"}}>Where things stand</span>
-                {d.momentum.label&&<span style={{marginLeft:"auto",fontSize:10,color:dc,background:`${dc}12`,padding:"3px 10px",borderRadius:20,fontFamily:"Inter,sans-serif",fontWeight:500}}>{d.momentum.label}</span>}
+      {/* Workstream / deliverable viewer — overlay */}
+      {viewingWs!==null&&wsState[viewingWs]?.result&&(
+        <div onClick={()=>setViewingWs(null)} style={{position:"fixed",inset:0,background:"rgba(6,4,12,0.72)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16,backdropFilter:"blur(4px)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#151021",border:"1px solid rgba(255,255,255,.1)",borderRadius:16,maxWidth:600,width:"100%",maxHeight:"84vh",overflow:"auto",padding:mobile?"20px 18px":"26px 28px",boxShadow:"0 24px 70px rgba(0,0,0,0.55)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,gap:12}}>
+              <div>
+                <div style={{...LAB,color:"#6ee7a8",marginBottom:6}}>Delivered · yours to keep</div>
+                <h3 style={{fontSize:mobile?16:19,fontWeight:600,color:"#efedf5",margin:0,fontFamily:DECK_DISP,letterSpacing:"-0.01em"}}>{d.active_workstreams[viewingWs].title}</h3>
               </div>
-              <p style={{fontSize:mobile?13:14,color:"#333",lineHeight:1.8,fontWeight:300,fontFamily:"Inter,sans-serif",margin:"0 0 12px"}}>{d.momentum.headline}</p>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <div style={{flex:1,height:5,background:"#efeafc",borderRadius:3,overflow:"hidden"}}>
-                  <div style={{width:`${Math.round((d.momentum.score||0.5)*100)}%`,height:"100%",background:"linear-gradient(90deg,#5b21b6,#a78bfa)",borderRadius:3,transition:"width 1s ease"}}/>
-                </div>
-                {d.momentum.focus&&<span style={{fontSize:10,color:"#999",fontFamily:"Inter,sans-serif",fontWeight:300,whiteSpace:"nowrap"}}>Focus: {d.momentum.focus}</span>}
-              </div>
+              <button onClick={()=>setViewingWs(null)} style={{background:"#1c1630",border:"1px solid rgba(255,255,255,.12)",borderRadius:8,width:30,height:30,fontSize:16,color:"rgba(255,255,255,.6)",cursor:"pointer",flexShrink:0}}>×</button>
             </div>
-          )}
-
-          {/* ── 2. NEXT BEST ACTION ── */}
-          {d.next_best_action&&(
-            <div style={{background:"#0a0a0a",borderRadius:14,padding:mobile?"16px 17px":"20px 22px",marginBottom:14,position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",top:0,right:0,width:160,height:160,background:"radial-gradient(circle at 70% 30%, rgba(167,139,250,0.2), transparent 70%)",pointerEvents:"none"}}/>
-              <div style={{fontSize:9,fontWeight:600,color:"#a78bfa",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8,fontFamily:"Inter,sans-serif"}}>Your next best move</div>
-              <p style={{fontSize:mobile?15:17,color:"#fff",lineHeight:1.6,fontWeight:400,fontFamily:"Inter,sans-serif",margin:"0 0 14px"}}>{d.next_best_action.text}</p>
-              <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                <button onClick={()=>sendChat(d.next_best_action.cta||"Let's do this")} style={{background:"#fff",border:"none",borderRadius:9999,padding:"10px 20px",fontSize:13,color:"#0a0a0a",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>{d.next_best_action.cta||"Let's do this"} →</button>
-                {d.next_best_action.why&&<span style={{fontSize:11,color:"rgba(255,255,255,0.5)",fontFamily:"Inter,sans-serif",fontWeight:300}}>{d.next_best_action.why}</span>}
-              </div>
-            </div>
-          )}
-
-          {/* Active capability runner */}
-          {activeCap&&<div style={{marginBottom:14}}><CapabilityRunner cap={activeCap} intel={intel} domainColor={dc} onClose={()=>setActiveCap(null)} onCreditUsed={onCreditUsed} credits={credits}/></div>}
-
-          {/* ── 3. ACTIVE WORKSTREAMS ── */}
-          {d.active_workstreams?.length>0&&(
-            <div style={{marginBottom:14}}>
-              <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:9,display:"flex",alignItems:"center",gap:6}}><span>⚙️</span> In motion</div>
-              <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                {d.active_workstreams.map((w,i)=>{
-                  const liveStatus=wsState[i]?.status||"in_progress";
-                  const done=liveStatus==="complete";
-                  const stColor=done?"#16a34a":"#d97706";
-                  const stLabel=done?"Done — tap to view":"Working on it...";
-                  return(
-                    <div key={i} onClick={()=>{if(done)setViewingWs(i);}}
-                      style={{background:"#fff",border:`1px solid ${done?"#d1fae5":"#e8e8e8"}`,borderRadius:11,padding:mobile?"12px 13px":"13px 16px",display:"flex",gap:12,alignItems:"flex-start",cursor:done?"pointer":"default",transition:"all .2s"}}
-                      onMouseEnter={e=>{if(done)e.currentTarget.style.background="#f0fdf4";}}
-                      onMouseLeave={e=>{if(done)e.currentTarget.style.background="#fff";}}>
-                      <div style={{width:8,height:8,borderRadius:4,background:stColor,marginTop:5,flexShrink:0,animation:done?"none":"pulse 1.6s ease infinite"}}/>
-                      <div style={{flex:1}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:3}}>
-                          <span style={{fontWeight:500,fontSize:12.5,color:"#000",fontFamily:"Inter,sans-serif"}}>{w.title}</span>
-                          <span style={{fontSize:9.5,color:stColor,background:`${stColor}12`,padding:"2px 8px",borderRadius:20,fontFamily:"Inter,sans-serif",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>{done?"Complete":"In progress"}</span>
-                        </div>
-                        <p style={{fontSize:11.5,color:"#777",lineHeight:1.6,fontWeight:300,fontFamily:"Inter,sans-serif",margin:0}}>{w.detail}</p>
-                        <div style={{fontSize:10,color:done?"#16a34a":"#bbb",marginTop:5,fontFamily:"Inter,sans-serif",fontWeight:done?500:300,display:"flex",alignItems:"center",gap:4}}>{done&&<span>✓</span>}{stLabel}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Workstream result viewer */}
-          {viewingWs!==null&&wsState[viewingWs]?.result&&(
-            <div onClick={()=>setViewingWs(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,maxWidth:560,width:"100%",maxHeight:"82vh",overflow:"auto",padding:mobile?"20px 18px":"26px 28px",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,gap:12}}>
-                  <div>
-                    <div style={{fontSize:9,fontWeight:600,color:"#16a34a",textTransform:"uppercase",letterSpacing:1.5,marginBottom:4,fontFamily:"Inter,sans-serif"}}>Complete</div>
-                    <h3 style={{fontSize:mobile?16:18,fontWeight:600,color:"#000",margin:0,fontFamily:"Inter,sans-serif"}}>{d.active_workstreams[viewingWs].title}</h3>
-                  </div>
-                  <button onClick={()=>setViewingWs(null)} style={{background:"#f5f5f5",border:"none",borderRadius:8,width:30,height:30,fontSize:16,color:"#888",cursor:"pointer",flexShrink:0}}>×</button>
-                </div>
-                <div style={{fontSize:13,color:"#333",lineHeight:1.75,fontWeight:300,fontFamily:"Inter,sans-serif",marginTop:14}}><MD text={wsState[viewingWs].result}/></div>
-                <div style={{display:"flex",gap:8,marginTop:18,flexWrap:"wrap"}}>
-                  <button onClick={()=>downloadText(`${safeFileName(d.active_workstreams[viewingWs].title,"aiveree-deliverable")}.md`,wsState[viewingWs].result)}
-                    style={{background:"#fff",border:"1px solid #e5e5e5",borderRadius:9999,padding:"11px 18px",fontSize:13,color:"#333",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Download</button>
-                  <button onClick={()=>{const t=d.active_workstreams[viewingWs].title;setViewingWs(null);sendChat(`Take this further: ${t}`);}}
-                    style={{background:"#0a0a0a",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:13,color:"#fff",fontWeight:600,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Continue with Aiveree →</button>
-                </div>
-                <p style={{fontSize:11,color:"#aaa",marginTop:9,fontFamily:"Inter,sans-serif",lineHeight:1.5}}>“Continue” opens this in your chat so you can dig deeper, refine it, or get the next step.</p>
-              </div>
-            </div>
-          )}
-
-          {/* ── 4. OPEN LOOPS ── */}
-          {d.open_loops?.length>0&&(
-            <div style={{marginBottom:14}}>
-              <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:9,display:"flex",alignItems:"center",gap:6}}><span>🔵</span> Open loops <span style={{fontSize:10,color:"#bbb",fontWeight:300}}>· things I'm holding for you</span></div>
-              <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                {d.open_loops.map((l,i)=>(
-                  <div key={i} style={{background:"#fafafa",border:"1px solid #efefef",borderRadius:11,padding:mobile?"12px 13px":"13px 16px",display:"flex",gap:11,alignItems:"flex-start",cursor:"pointer"}}
-                    onClick={()=>sendChat(`Help me with: ${l.title}`)}
-                    onMouseEnter={e=>e.currentTarget.style.background="#f5f3ff"}
-                    onMouseLeave={e=>e.currentTarget.style.background="#fafafa"}>
-                    <span style={{fontSize:13,flexShrink:0,marginTop:1}}>{l.type==="approval"?"✓":l.type==="follow_up"?"↩":"◇"}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:500,fontSize:12,color:"#000",fontFamily:"Inter,sans-serif",marginBottom:2}}>{l.title}</div>
-                      <p style={{fontSize:11,color:"#888",lineHeight:1.55,fontWeight:300,fontFamily:"Inter,sans-serif",margin:0}}>{l.detail}</p>
-                    </div>
-                    <span style={{fontSize:11,color:"#ccc",flexShrink:0}}>→</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── 5. QUIET PROGRESS ── */}
-          {d.quiet_progress?.length>0&&(
-            <div style={{marginBottom:18,background:"#fafafa",border:"1px solid #efefef",borderRadius:12,padding:mobile?"14px 15px":"16px 18px"}}>
-              <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><span>🌙</span> Quiet progress</div>
-              <p style={{fontSize:10.5,color:"#bbb",marginBottom:12,fontFamily:"Inter,sans-serif",fontWeight:300}}>Useful things I've been thinking through for your goal.</p>
-              <div style={{display:"flex",flexDirection:"column",gap:9}}>
-                {d.quiet_progress.map((q,i)=>(
-                  <div key={i} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                    <span style={{fontSize:14,flexShrink:0}}>{q.icon||"✦"}</span>
-                    <span style={{fontSize:12,color:"#666",lineHeight:1.6,fontWeight:300,fontFamily:"Inter,sans-serif"}}>{q.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── CAPABILITIES (secondary) ── */}
-          <div style={{borderTop:"1px solid #f0f0f0",paddingTop:16}}>
-            <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:4,display:"flex",alignItems:"center",gap:6}}><span>🛠️</span> Put my team on something specific</div>
-            <p style={{fontSize:10.5,color:"#ccc",marginBottom:11,fontFamily:"Inter,sans-serif",fontWeight:300}}>Tap anything and I'll get to work on it for your goal.</p>
-            <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 1fr",gap:7}}>
-              {(d.suggested_capabilities?.length>0?d.suggested_capabilities:caps).map((cap,i)=>{
-                // Handle both dashboard suggested caps and hardcoded caps
-                const capIcon=cap.icon||cap.icon||"⚙️";
-                const capLabel=cap.label||cap.label||"Action";
-                const capId=cap.id||cap.id;
-                return(
-                  <button key={capId||i}
-                    onClick={()=>{if(credits<=0){setShowCreditGate(true);return;}setActiveCap(activeCap?.id===capId?null:cap);}}
-                    style={{background:activeCap?.id===capId?`${dc}08`:"#fff",border:`1px solid ${activeCap?.id===capId?dc+"30":"#e8e8e8"}`,borderRadius:10,padding:"11px 13px",cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10,fontFamily:"Inter,sans-serif",transition:"all .15s"}}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=`${dc}40`;e.currentTarget.style.background=`${dc}06`;}}
-                    onMouseLeave={e=>{if(activeCap?.id!==capId){e.currentTarget.style.borderColor="#e8e8e8";e.currentTarget.style.background="#fff";}}}>
-                    <span style={{fontSize:17,flexShrink:0}}>{capIcon}</span>
-                    <div style={{fontWeight:500,fontSize:11.5,color:activeCap?.id===capId?dc:"#000"}}>{capLabel}</div>
-                  </button>
-                );
-              })}
+            <div style={{fontSize:14,color:"rgba(255,255,255,.82)",lineHeight:1.7,fontFamily:DECK_SANS,marginTop:14}}><MD text={wsState[viewingWs].result} dark/></div>
+            <div style={{display:"flex",gap:8,marginTop:20,flexWrap:"wrap"}}>
+              <button onClick={()=>downloadText(`${safeFileName(d.active_workstreams[viewingWs].title,"aiveree-deliverable")}.md`,wsState[viewingWs].result)}
+                style={{background:"transparent",border:"1px solid rgba(255,255,255,.18)",borderRadius:9999,padding:"11px 20px",fontSize:14,color:"rgba(255,255,255,.85)",fontWeight:500,cursor:"pointer",fontFamily:DECK_SANS}}>Download</button>
+              <button onClick={()=>{const t=d.active_workstreams[viewingWs].title;setViewingWs(null);sendChat(`Take this further: ${t}`);}}
+                style={{background:"#fff",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:14,color:"#16141c",fontWeight:600,cursor:"pointer",fontFamily:DECK_SANS}}>Continue with Aiveree →</button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* ── PERSISTENT CHAT ── */}
-        <div style={{position:mobile?"relative":"sticky",top:mobile?0:80,background:"#fff",border:"1px solid #e8e8e8",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 16px rgba(0,0,0,0.06)"}}>
-          {/* Header */}
-          <div style={{padding:"11px 13px",borderBottom:"1px solid #f0f0f0",display:"flex",alignItems:"center",gap:9,background:"#fafafa"}}>
-            <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:600,fontFamily:"Inter,sans-serif"}}>Ai</div>
+      {/* Chat drawer — the live conversation */}
+      {chatOpen&&(
+        <div style={{position:"fixed",top:0,right:0,bottom:0,width:mobile?"100%":420,maxWidth:"100%",zIndex:1100,background:"#0e0b17",borderLeft:"1px solid rgba(255,255,255,.1)",boxShadow:"-20px 0 60px rgba(0,0,0,0.5)",display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"14px 16px",borderBottom:"1px solid rgba(255,255,255,.07)",display:"flex",alignItems:"center",gap:11}}>
+            <span className="deck-anim" style={{width:24,height:24,borderRadius:"50%",flexShrink:0,background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)",animation:"deckBreathe 5s ease-in-out infinite"}}/>
             <div style={{flex:1}}>
-              <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000"}}>Aiveree</div>
-              <div style={{fontSize:10,color:"#bbb",fontFamily:"Inter,sans-serif",fontWeight:300}}>Online · {dl}</div>
+              <div style={{fontFamily:DECK_DISP,fontWeight:600,fontSize:14,color:"#efedf5",letterSpacing:"-0.01em"}}>Aiveree</div>
+              <div style={{...LAB,marginTop:3,color:"#a99df0"}}>{dl.toUpperCase()} · ONLINE</div>
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <div style={{width:6,height:6,borderRadius:3,background:"#22c55e"}}/>
-              <button onClick={toggleMute} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#bbb",padding:0}}>{muted?"🔇":"🔊"}</button>
-            </div>
+            <button onClick={toggleMute} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"rgba(255,255,255,.5)",padding:0}}>{muted?"🔇":"🔊"}</button>
+            <button onClick={()=>setChatOpen(false)} style={{background:"#1c1630",border:"1px solid rgba(255,255,255,.12)",borderRadius:8,width:30,height:30,fontSize:16,color:"rgba(255,255,255,.6)",cursor:"pointer"}}>×</button>
           </div>
-
-          {/* Messages */}
-          <div style={{height:mobile?260:400,overflowY:"auto",padding:"12px 12px 8px",display:"flex",flexDirection:"column",gap:9}}>
+          <div style={{flex:1,overflowY:"auto",padding:"16px 14px 10px",display:"flex",flexDirection:"column",gap:11}}>
             {chatMsgs.map((m,i)=>(
-              <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",alignItems:"flex-end",gap:6}}>
-                {m.role==="assistant"&&<div style={{width:22,height:22,borderRadius:6,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,flexShrink:0,color:"#fff",fontWeight:600,fontFamily:"Inter,sans-serif"}}>Ai</div>}
-                <div style={{maxWidth:"82%",background:m.role==="user"?"#000":"#f5f5f5",borderRadius:m.role==="user"?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"8px 11px",color:m.role==="user"?"#fff":"#000",fontSize:12,lineHeight:1.7,fontFamily:"Inter,sans-serif",fontWeight:300}}>
+              <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",alignItems:"flex-end",gap:7}}>
+                {m.role==="assistant"&&<span style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)"}}/>}
+                <div style={{maxWidth:"84%",background:m.role==="user"?"#16141c":"#fff",color:m.role==="user"?"#fff":"#26222e",border:m.role==="user"?"none":"1px solid #e6e3df",borderRadius:m.role==="user"?"16px 16px 4px 16px":"4px 16px 16px 16px",padding:"12px 15px",fontSize:14.5,lineHeight:1.6,fontFamily:DECK_SANS}}>
                   <MD text={m.content} dark={m.role==="user"}/>
                 </div>
               </div>
             ))}
             {chatBusy&&(
-              <div style={{display:"flex",alignItems:"flex-end",gap:6}}>
-                <div style={{width:22,height:22,borderRadius:6,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:9,color:"#fff",fontWeight:600,fontFamily:"Inter,sans-serif"}}>Ai</div>
-                <div style={{background:"#f5f5f5",borderRadius:"12px 12px 12px 2px",padding:"8px 11px",display:"flex",gap:3}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:3,background:"#ccc",animation:`pulse 1.2s ease ${i*.25}s infinite`}}/>)}</div>
+              <div style={{display:"flex",alignItems:"flex-end",gap:7}}>
+                <span style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)"}}/>
+                <div style={{background:"#fff",border:"1px solid #e6e3df",borderRadius:"4px 16px 16px 16px",padding:"12px 15px",display:"flex",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:3,background:"#c9c3d2",animation:`pulse 1.2s ease ${i*.25}s infinite`}}/>)}</div>
               </div>
             )}
             <div ref={chatRef}/>
           </div>
-
-          {/* Input */}
-          <div style={{padding:"10px 12px",borderTop:"1px solid #f0f0f0",background:"#fafafa"}}>
+          <div style={{padding:"12px 14px",borderTop:"1px solid rgba(255,255,255,.07)",background:"#0e0b17"}}>
             {listening&&(
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 0",marginBottom:6}}>
-                <div style={{display:"flex",alignItems:"center",gap:3}}>
-                  {[0,1,2,3,4].map(i=>(
-                    <div key={i} style={{width:3,borderRadius:3,background:"#5b21b6",animation:`voiceBar 0.6s ease ${i*0.08}s infinite alternate`,minHeight:4,height:8+i*3}}/>
-                  ))}
-                </div>
-                <span style={{fontSize:11,color:"#5b21b6",fontFamily:"Inter,sans-serif",fontWeight:500}}>Listening...</span>
-                {interim&&<span style={{fontSize:11,color:"#999",fontFamily:"Inter,sans-serif",fontStyle:"italic",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{interim}</span>}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"6px 0 10px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:3}}>{[0,1,2,3,4].map(i=>(<div key={i} style={{width:3,borderRadius:3,background:"#a99df0",animation:`voiceBar 0.6s ease ${i*0.08}s infinite alternate`,minHeight:4,height:8+i*3}}/>))}</div>
+                <span style={{fontSize:11,color:"#a99df0",fontFamily:DECK_SANS,fontWeight:500}}>Listening...</span>
+                {interim&&<span style={{fontSize:11,color:"rgba(255,255,255,.4)",fontFamily:DECK_SANS,fontStyle:"italic",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{interim}</span>}
               </div>
             )}
-            <div style={{display:"flex",gap:6,alignItems:"flex-end"}}>
+            <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
               <textarea value={chatInp} onChange={e=>setChatInp(e.target.value)}
                 onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
-                placeholder={listening?"Listening...":"Ask Aiveree anything..."} rows={2}
-                style={{flex:1,background:"#fff",border:`1px solid ${listening?"#a78bfa":"#e8e8e8"}`,borderRadius:8,padding:"8px 10px",fontSize:12,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"none",lineHeight:1.5,transition:"border-color .2s"}}
-                onFocus={e=>e.target.style.borderColor="#5b21b6"} onBlur={e=>{if(!listening)e.target.style.borderColor="#e8e8e8";}}/>
-              <div style={{display:"flex",flexDirection:"column",gap:5,flexShrink:0}}>
+                placeholder={listening?"Listening...":"Ask her anything, or tell her what changed…"} rows={2}
+                style={{flex:1,background:"#151021",border:`1px solid ${listening?"#7c3aed":"rgba(255,255,255,.12)"}`,borderRadius:10,padding:"10px 12px",fontSize:14,color:"#efedf5",outline:"none",fontFamily:DECK_SANS,resize:"none",lineHeight:1.5}}/>
+              <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
                 {voiceSupported&&(
-                  <button onClick={()=>listening?stopListening():startListening()}
-                    style={{background:listening?"#5b21b6":"#f5f5f5",border:`1px solid ${listening?"#5b21b6":"#e5e5e5"}`,borderRadius:8,width:34,height:34,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,transition:"all .2s",position:"relative",flexShrink:0}}>
-                    <span>{listening?"⏹":"🎤"}</span>
-                    {listening&&<div style={{position:"absolute",inset:-4,borderRadius:12,border:"2px solid #a78bfa",animation:"ping 1.2s ease infinite",opacity:0.6}}/>}
-                  </button>
+                  <button onClick={()=>listening?stopListening():startListening()} style={{background:listening?"#7c3aed":"#1c1630",border:`1px solid ${listening?"#7c3aed":"rgba(255,255,255,.12)"}`,borderRadius:9,width:36,height:36,cursor:"pointer",fontSize:14,color:"#efedf5"}}>{listening?"⏹":"🎤"}</button>
                 )}
-                <button onClick={()=>sendChat()} disabled={chatBusy||(!chatInp.trim()&&!listening)}
-                  style={{background:"#000",border:"none",borderRadius:8,width:34,height:34,color:"#fff",fontWeight:500,cursor:chatBusy||(!chatInp.trim()&&!listening)?"not-allowed":"pointer",fontSize:13,opacity:chatBusy||(!chatInp.trim()&&!listening)?0.35:1,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>→</button>
+                <button onClick={()=>sendChat()} disabled={chatBusy||(!chatInp.trim()&&!listening)} style={{background:"#7c3aed",border:"none",borderRadius:9,width:36,height:36,color:"#fff",fontWeight:600,cursor:chatBusy||(!chatInp.trim()&&!listening)?"not-allowed":"pointer",fontSize:16,opacity:chatBusy||(!chatInp.trim()&&!listening)?0.4:1,fontFamily:DECK_DISP}}>→</button>
               </div>
             </div>
-            <div style={{fontSize:9,color:"#ccc",marginTop:4,fontFamily:"Inter,sans-serif",textAlign:"center"}}>
-              {voiceSupported?"🎤 tap to speak · Enter to send":"Enter to send · Shift+Enter for new line"}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ DECK CARD ═══ */}
+      <div style={{maxWidth:1440,margin:"0 auto",minHeight:"100vh",background:"#0b0912"}}>
+
+        {/* top bar */}
+        <div style={{display:"flex",alignItems:"center",gap:mobile?10:16,padding:mobile?"12px 16px":"14px 24px",borderBottom:"1px solid rgba(255,255,255,.07)",background:"#0e0b17",flexWrap:"wrap"}}>
+          <span className="deck-anim" style={{width:20,height:20,borderRadius:"50%",background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 60%,#3b1180)",animation:"deckBreathe 5s ease-in-out infinite"}}/>
+          <span style={{fontFamily:DECK_DISP,fontWeight:600,fontSize:15,letterSpacing:"-0.02em"}}>Aiveree</span>
+          {!mobile&&<span style={{width:1,height:18,background:"rgba(255,255,255,.1)"}}/>}
+          {!mobile&&<span style={{...LAB,color:"#a99df0"}}>{dl.toUpperCase()}</span>}
+          <span style={{flex:1}}/>
+          <span style={{...LAB,color:"rgba(255,255,255,.6)",border:"1px solid rgba(255,255,255,.12)",borderRadius:9999,padding:"7px 13px"}}>{credits} TASKS LEFT</span>
+          <button onClick={onNewProject} style={{...LAB,color:"rgba(255,255,255,.6)",border:"1px solid rgba(255,255,255,.12)",borderRadius:9999,padding:"7px 13px",background:"transparent",cursor:"pointer"}}>+ NEW</button>
+          <span style={{width:28,height:28,borderRadius:"50%",background:"linear-gradient(135deg,#4c3c7a,#241a3d)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:DECK_DISP,fontWeight:500,fontSize:12}}>{(user?.name||"?").slice(0,1).toUpperCase()}</span>
+        </div>
+
+        {/* three columns */}
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"296px minmax(0,1fr) 368px",alignItems:"stretch"}}>
+
+          {/* ── LEFT RAIL ── */}
+          <div style={{borderRight:mobile?"none":"1px solid rgba(255,255,255,.07)",borderBottom:mobile?"1px solid rgba(255,255,255,.07)":"none",display:"flex",flexDirection:"column"}}>
+            {/* presence */}
+            <div style={{padding:"30px 24px 26px",borderBottom:"1px solid rgba(255,255,255,.07)",textAlign:"center",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"relative",width:132,height:132,margin:"0 auto 18px"}}>
+                <div className="deck-anim" style={{position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle,rgba(124,58,237,.45),rgba(124,58,237,0) 68%)",animation:"deckHalo 6s ease-in-out infinite"}}/>
+                <div className="deck-anim" style={{position:"absolute",inset:26,borderRadius:"50%",background:"radial-gradient(circle at 34% 28%,#e9e4ff,#8b5cf6 42%,#4c1d95 78%,#2a0f5e)",boxShadow:"0 0 44px rgba(139,92,246,.55),inset 0 0 26px rgba(255,255,255,.22)",animation:"deckBreathe 5s ease-in-out infinite"}}/>
+                <div style={{position:"absolute",inset:8,borderRadius:"50%",border:"1px solid rgba(167,139,250,.22)"}}/>
+              </div>
+              <div style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:15,marginBottom:9}}>Aiveree is here</div>
+              <div style={{...LAB,color:"#a99df0",lineHeight:1.5}}>{liveStreams.length>0?"TEAM WORKING":"READY WHEN YOU ARE"}</div>
+              {d.momentum?.headline&&<div style={{fontSize:12.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.42)",marginTop:12}}>{d.momentum.headline}</div>}
+            </div>
+            {/* goal */}
+            {goalText&&(
+              <div style={{padding:24,borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+                <div style={{...LAB,marginBottom:16}}>The goal</div>
+                <div style={{fontSize:17,lineHeight:1.4,fontFamily:DECK_SANS,marginBottom:20}}>{goalText}</div>
+                <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:8}}>
+                  <span style={{fontFamily:DECK_DISP,fontWeight:600,fontSize:30,letterSpacing:"-0.03em"}}>{pct}%</span>
+                  <span style={{...LAB,color:"#f0a03c"}}>{(d.momentum?.label||"IN PROGRESS").toUpperCase()}</span>
+                </div>
+                <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,.09)",overflow:"hidden",marginBottom:14}}><div style={{width:`${pct}%`,height:"100%",borderRadius:3,background:"linear-gradient(90deg,#7c3aed,#c4b5fd)"}}/></div>
+                <div style={{display:"flex",gap:18}}>
+                  <div><div style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:15}}>{doneStreams.length}</div><div style={{...LAB,marginTop:5,lineHeight:1.4}}>DELIVERED</div></div>
+                  <div><div style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:15}}>{liveStreams.length}</div><div style={{...LAB,marginTop:5,lineHeight:1.4}}>IN MOTION</div></div>
+                  <div><div style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:15}}>{credits}</div><div style={{...LAB,marginTop:5,lineHeight:1.4}}>TASKS LEFT</div></div>
+                </div>
+              </div>
+            )}
+            {/* also open */}
+            <div style={{padding:24}}>
+              <div style={{...LAB,marginBottom:14}}>Also open</div>
+              {d.momentum?.focus&&(
+                <div style={{background:"#151021",border:"1px solid rgba(255,255,255,.07)",borderRadius:10,padding:"13px 14px",marginBottom:12}}>
+                  <div style={{fontSize:13.5,lineHeight:1.3,fontFamily:DECK_SANS}}>{d.momentum.focus}</div>
+                  <div style={{...LAB,marginTop:6}}>CURRENT FOCUS</div>
+                </div>
+              )}
+              <button onClick={onNewProject} style={{background:"none",border:"none",padding:0,fontSize:12.5,fontFamily:DECK_SANS,color:"#a99df0",cursor:"pointer"}}>+ Bring me something new</button>
+            </div>
+          </div>
+
+          {/* ── CENTER ── */}
+          <div style={{display:"flex",flexDirection:"column",borderRight:mobile?"none":"1px solid rgba(255,255,255,.07)",borderBottom:mobile?"1px solid rgba(255,255,255,.07)":"none",minWidth:0}}>
+            {/* next move */}
+            {d.next_best_action&&(
+              <div style={{padding:mobile?"22px 18px":"26px 30px",borderBottom:"1px solid rgba(255,255,255,.07)",background:"linear-gradient(135deg,#1a1230 0%,#120d20 58%,#0f0b1a 100%)",position:"relative",overflow:"hidden"}}>
+                <div style={{position:"absolute",top:-70,right:-40,width:280,height:280,background:"radial-gradient(circle,rgba(139,92,246,.22),transparent 66%)",pointerEvents:"none"}}/>
+                <div style={{...LAB,color:"#c4b5fd",marginBottom:16}}>Your next move</div>
+                <div style={{fontSize:mobile?20:26,lineHeight:1.32,fontFamily:DECK_SANS,maxWidth:"26em",marginBottom:10}}>{d.next_best_action.text}</div>
+                {d.next_best_action.why&&<div style={{fontSize:13.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.5)",maxWidth:"44em",marginBottom:22}}>{d.next_best_action.why}</div>}
+                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                  <button onClick={()=>sendChat(d.next_best_action.cta||"Let's do this")} style={{background:"#fff",color:"#16141c",border:"none",borderRadius:9999,padding:"13px 24px",fontSize:14.5,fontWeight:600,cursor:"pointer",fontFamily:DECK_SANS}}>{d.next_best_action.cta||"Let's do this"}</button>
+                  <button onClick={()=>{setChatOpen(true);}} style={{background:"transparent",border:"1px solid rgba(255,255,255,.18)",borderRadius:9999,padding:"13px 20px",fontSize:14.5,color:"rgba(255,255,255,.82)",cursor:"pointer",fontFamily:DECK_SANS}}>Talk it through first</button>
+                </div>
+              </div>
+            )}
+
+            {/* her team, right now */}
+            <div style={{padding:mobile?"22px 18px":"26px 30px",borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+              <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:18,flexWrap:"wrap"}}>
+                <span style={LAB}>Her team, right now</span>
+                {liveStreams.length>0&&<span className="deck-anim" style={{...LAB,color:"#f0a03c",animation:"deckBlip 2.4s ease-in-out infinite"}}>● {liveStreams.length} IN MOTION</span>}
+                <span style={{flex:1}}/>
+                <span style={{fontSize:12,fontFamily:DECK_SANS,color:"rgba(255,255,255,.4)"}}>Each one produces a file you keep</span>
+              </div>
+              {liveStreams.length>0?(
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {liveStreams.map(({w,i})=>(
+                    <div key={i} style={{background:"#141020",border:"1px solid rgba(240,160,60,.28)",borderRadius:12,padding:"16px 18px"}}>
+                      <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:8}}>
+                        <span style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:15,lineHeight:1.2}}>{w.title}</span>
+                        <span style={{flex:1}}/>
+                        <span style={{...LAB,color:"#f0a03c",whiteSpace:"nowrap"}}>IN PROGRESS</span>
+                      </div>
+                      <div style={{fontSize:13,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.55)",marginBottom:12}}>{w.detail}</div>
+                      <div style={{height:4,borderRadius:2,background:"rgba(255,255,255,.08)",overflow:"hidden",position:"relative"}}>
+                        <div style={{width:"58%",height:"100%",borderRadius:2,background:"#f0a03c"}}/>
+                        <div className="deck-anim" style={{position:"absolute",top:0,left:0,width:"22%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent)",animation:"deckSweep 2.8s linear infinite"}}/>
+                      </div>
+                      <div style={{...LAB,color:"rgba(255,255,255,.32)",marginTop:10}}>WILL PRODUCE → {safeFileName(w.title,"DELIVERABLE").toUpperCase().replace(/ /g,"-")}.MD</div>
+                    </div>
+                  ))}
+                </div>
+              ):(
+                <div style={{fontSize:13.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.42)",padding:"4px 0"}}>All caught up — nothing in motion right now. Tell me what to work on next and I'll get my team on it.</div>
+              )}
+            </div>
+
+            {/* delivered */}
+            <div style={{padding:mobile?"22px 18px":"26px 30px",borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+              <div style={{display:"flex",alignItems:"baseline",gap:12,marginBottom:18}}>
+                <span style={LAB}>Delivered · yours to keep</span>
+                <span style={{flex:1}}/>
+                {doneStreams.length>0&&<button onClick={downloadAll} style={{fontSize:12,fontFamily:DECK_SANS,color:"rgba(255,255,255,.5)",background:"none",border:"none",cursor:"pointer"}}>{doneStreams.length} file{doneStreams.length>1?"s":""} · download all</button>}
+              </div>
+              {doneStreams.length>0?(
+                <div style={{border:"1px solid rgba(255,255,255,.07)",borderRadius:12,overflow:"hidden"}}>
+                  {doneStreams.map(({w,i},row)=>(
+                    <div key={i} style={{display:"grid",gridTemplateColumns:mobile?"1fr auto":"1fr 120px 96px",alignItems:"center",gap:12,padding:"14px 18px",background:row%2===0?"#141020":"#110e1c",borderBottom:row<doneStreams.length-1?"1px solid rgba(255,255,255,.06)":"none"}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontFamily:DECK_DISP,fontWeight:500,fontSize:14.5,lineHeight:1.3}}>{w.title}</div>
+                        <div style={{fontSize:12,lineHeight:1.4,fontFamily:DECK_SANS,color:"rgba(255,255,255,.45)",marginTop:4}}>{w.detail}</div>
+                      </div>
+                      {!mobile&&<span style={{...LAB,color:"#6ee7a8"}}>READY</span>}
+                      <button onClick={()=>setViewingWs(i)} style={{border:"1px solid rgba(255,255,255,.16)",borderRadius:9999,padding:"7px 12px",fontSize:12,fontFamily:DECK_SANS,color:"#efedf5",textAlign:"center",background:"transparent",cursor:"pointer"}}>Open</button>
+                    </div>
+                  ))}
+                </div>
+              ):(
+                <div style={{fontSize:13.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.42)"}}>Your team's first files will appear here as they finish — each one downloadable and yours to keep.</div>
+              )}
+            </div>
+
+            {/* composer */}
+            <div style={{marginTop:"auto",padding:mobile?"16px 18px":"18px 30px",borderTop:"1px solid rgba(255,255,255,.07)",background:"#0e0b17",position:mobile?"sticky":"static",bottom:0,zIndex:5}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,background:"#151021",border:"1px solid rgba(255,255,255,.1)",borderRadius:12,padding:"10px 12px"}}>
+                <span className="deck-anim" style={{width:16,height:16,borderRadius:"50%",flexShrink:0,background:"radial-gradient(circle at 32% 28%,#ddd6fe,#7c3aed 62%,#3b1180)",animation:"deckBreathe 5s ease-in-out infinite"}}/>
+                <input value={chatInp} onChange={e=>setChatInp(e.target.value)} onFocus={()=>setChatOpen(true)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
+                  placeholder="Ask her anything, or tell her what changed…"
+                  style={{flex:1,background:"transparent",border:"none",outline:"none",color:"#efedf5",fontSize:15,fontFamily:DECK_SANS,minWidth:0}}/>
+                {voiceSupported&&!mobile&&<span style={{...LAB,color:"rgba(255,255,255,.28)"}}>TAP MIC TO SPEAK</span>}
+                {voiceSupported&&<button onClick={()=>{setChatOpen(true);listening?stopListening():startListening();}} style={{width:34,height:34,borderRadius:8,background:listening?"#7c3aed":"#1c1630",border:"1px solid rgba(255,255,255,.12)",cursor:"pointer",fontSize:14,color:"#efedf5",flexShrink:0}}>🎤</button>}
+                <button onClick={()=>sendChat()} style={{width:34,height:34,borderRadius:8,background:"#7c3aed",border:"none",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:DECK_DISP,fontWeight:500,fontSize:15,color:"#fff",cursor:"pointer",flexShrink:0}}>→</button>
+              </div>
+              {caplist.length>0&&(
+                <div style={{display:"flex",gap:8,marginTop:11,flexWrap:"wrap"}}>
+                  {caplist.slice(0,4).map((cap,i)=>(
+                    <button key={cap.id||i} onClick={()=>{if(credits<=0){setShowCreditGate(true);return;}setActiveCap(cap);}}
+                      style={{border:"1px solid rgba(255,255,255,.1)",borderRadius:9999,padding:"6px 12px",fontSize:12,fontFamily:DECK_SANS,color:"rgba(255,255,255,.55)",background:"transparent",cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}>
+                      <span>{cap.icon||"⚙️"}</span>{cap.label||"Action"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── RIGHT RAIL ── */}
+          <div style={{display:"flex",flexDirection:"column"}}>
+            {/* needs a quick decision */}
+            {d.open_loops?.length>0&&(
+              <div style={{padding:mobile?"22px 18px":"26px 24px",borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+                <div style={{...LAB,color:"#f0a03c",marginBottom:16}}>Needs a quick decision</div>
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {d.open_loops.map((l,i)=>(
+                    <div key={i} style={{background:i===0?"#171126":"#141020",border:`1px solid ${i===0?"rgba(240,160,60,.3)":"rgba(255,255,255,.08)"}`,borderRadius:12,padding:16}}>
+                      <div style={{fontSize:15,lineHeight:1.45,fontFamily:DECK_SANS,marginBottom:8}}>{l.title}</div>
+                      <div style={{fontSize:12.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.45)",marginBottom:14}}>{l.detail}</div>
+                      <button onClick={()=>sendChat(`Help me decide: ${l.title}`)} style={{background:i===0?"#7c3aed":"transparent",border:i===0?"none":"1px solid rgba(255,255,255,.16)",borderRadius:9999,padding:"9px 16px",fontSize:13,fontWeight:i===0?600:400,fontFamily:DECK_SANS,color:i===0?"#fff":"rgba(255,255,255,.85)",cursor:"pointer"}}>Sort this with me →</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* honest notes */}
+            {d.quiet_progress?.length>0&&(
+              <div style={{padding:mobile?"22px 18px":"26px 24px",borderBottom:"1px solid rgba(255,255,255,.07)"}}>
+                <div style={{...LAB,marginBottom:6}}>Honest notes</div>
+                <div style={{fontSize:11.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.32)",marginBottom:16}}>My thinking, not live data. I'll say so when it's a guess.</div>
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  {d.quiet_progress.map((q,i)=>(
+                    <div key={i} style={{paddingLeft:14,borderLeft:"2px solid rgba(167,139,250,.4)"}}>
+                      <div style={{fontSize:14,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.78)"}}>{q.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* what she remembers */}
+            <div style={{padding:mobile?"22px 18px":"26px 24px"}}>
+              <div style={{...LAB,marginBottom:16}}>What she remembers</div>
+              <div style={{borderTop:"1px solid rgba(255,255,255,.07)"}}>
+                {(memItems.length>0?memItems:[goalText]).filter(Boolean).map((m,i,arr)=>(
+                  <div key={i} style={{padding:"13px 0",borderBottom:i<arr.length-1?"1px solid rgba(255,255,255,.07)":"none"}}>
+                    <div style={{fontSize:13.5,lineHeight:1.45,fontFamily:DECK_SANS,color:"rgba(255,255,255,.78)"}}>{m}</div>
+                    <div style={{...LAB,color:"rgba(255,255,255,.3)",marginTop:7}}>{i===0&&memItems.length===0?"YOUR GOAL":"FROM ONBOARDING"}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
