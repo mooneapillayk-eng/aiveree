@@ -24,14 +24,16 @@ async function generateSpeech(text) {
       },
       body: JSON.stringify({
         text: clean,
-        // Turbo v2.5 sounds noticeably warmer and more natural than Flash.
-        model_id: "eleven_turbo_v2_5",
+        // Multilingual v2 is ElevenLabs' warmest, most natural-sounding model —
+        // noticeably less "robotic" than the turbo/flash low-latency models.
+        model_id: "eleven_multilingual_v2",
         voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.8,
-          style: 0.28,
+          // Lower stability = more natural, human intonation (less monotone/robotic).
+          stability: 0.4,
+          similarity_boost: 0.85,
+          style: 0.4, // a touch of expressiveness so she sounds alive, not flat
           use_speaker_boost: true,
-          speed: 0.9 // slow the pace slightly so she doesn't sound rushed or abrupt
+          speed: 1.0 // natural conversational pace (0.9 was dragging)
         }
       })
     }

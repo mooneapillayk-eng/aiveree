@@ -44,6 +44,20 @@ const DOMAINS = [
 ];
 
 // ─── SPECIALIST CAPABILITIES BY DOMAIN ───────────────────────────────────────
+// Social media design pack: a real, usable deliverable produced today — platform
+// content plus a precise visual brief per post that a designer (or Aiveree's own
+// build feature later) can turn straight into finished graphics.
+const SOCIAL_DESIGN_PROMPT=`Create a ready-to-use social media pack for this person's goal and the platforms they named.
+
+For EACH platform they mention, give:
+1. The content angle that actually fits how that platform works (short-form video, carousel, static post, etc.).
+2. Three ready-to-post captions written in a natural, human voice — real hooks, no cheesy marketing speak, plain English.
+3. The exact hashtags to use (a realistic mix, not 30 generic ones).
+4. A clear VISUAL DESIGN BRIEF for each post: the layout, a colour palette with hex codes, what the image or graphic shows, the font feel, and the exact on-image text. Make it specific enough that a designer or a design tool could build it directly with no guesswork.
+5. A simple one-week posting schedule with the best times to post.
+
+Keep everything specific to their actual goal and offer — never generic advice. Use plain words, explain anything technical, and no em-dashes.`;
+
 const CAPABILITIES = {
   career: [
     { id:"jobs",       icon:"🔍", label:"Find live job matches",       auto:true,  prompt:"Search the web for real current UK job listings that specifically match this person's goal and background. Find 6-8 actual roles with job titles, companies, locations, salary where listed, and real application URLs. For each role explain in one sentence exactly why it fits. Lead with the most exciting opportunities." },
@@ -58,17 +72,20 @@ const CAPABILITIES = {
     { id:"legal",     icon:"⚖️", label:"What legal setup do I need",  auto:true,  prompt:"Based on their specific business idea and UK context, identify exactly what legal and administrative setup they need. Cover business structure, HMRC registration, specific insurances, key contracts, and licencing." },
     { id:"financials",icon:"📊", label:"Model my financials",         auto:false, inputLabel:"What's your intended pricing and how many customers do you expect in month 1?", prompt:"Build a realistic 12-month financial projection. Show conservative and optimistic scenarios with monthly targets and break-even point." },
     { id:"marketing", icon:"📣", label:"Create my marketing strategy", auto:true, prompt:"Create a specific marketing strategy. Write a one-sentence positioning statement. Describe the ideal customer profile in detail. Identify the top 3 acquisition channels that work for this specific business type. Give a 90-day marketing calendar with weekly specific actions." },
+    { id:"social", icon:"📱", label:"Design my social media", auto:false, inputLabel:"Which platforms, and what are you promoting? (e.g. Instagram + TikTok, launching my candle shop)", prompt:SOCIAL_DESIGN_PROMPT },
   ],
   grow: [
     { id:"audit",     icon:"🔍", label:"Audit what I have",           auto:true,  prompt:"Based on their business description, identify what is working, what isn't, and where the biggest growth lever is. Be specific and direct." },
     { id:"customers", icon:"👥", label:"Find more customers",         auto:true,  prompt:"Identify the top 3 channels for acquiring more customers for this specific business. Give specific actionable steps for each, not generic advice." },
     { id:"pricing",   icon:"💷", label:"Review my pricing",           auto:true,  prompt:"Research comparable pricing in their market. Assess whether they're under or over priced. Recommend a specific pricing strategy with the numbers." },
     { id:"positioning",icon:"🎯",label:"Sharpen my positioning",      auto:true,  prompt:"Write a new positioning statement and ideal customer profile. Identify who they should stop selling to and who they should focus on." },
+    { id:"social", icon:"📱", label:"Design my social media", auto:false, inputLabel:"Which platforms, and what are you promoting? (e.g. Instagram + TikTok, my coaching business)", prompt:SOCIAL_DESIGN_PROMPT },
   ],
   side: [
     { id:"idea",      icon:"💡", label:"Validate my idea",            auto:true,  prompt:"Assess the viability of this side hustle idea. Research if there's a market, who the competition is, and what a realistic first month of income looks like." },
     { id:"start",     icon:"🚀", label:"How to start without quitting",auto:true, prompt:"Build a realistic plan for starting this side hustle around a full-time job. Be specific about time requirements, what to do in the first 30 days, and how to avoid burnout." },
     { id:"income",    icon:"💷", label:"How fast can I earn",         auto:true,  prompt:"Research realistic income timelines for this type of side hustle. What does month 1, 3, and 6 look like? What are the fastest ways to get first paying customers?" },
+    { id:"social", icon:"📱", label:"Design my social media", auto:false, inputLabel:"Which platforms, and what are you promoting? (e.g. Instagram + TikTok, my side project)", prompt:SOCIAL_DESIGN_PROMPT },
   ],
   housing: [
     { id:"rights",    icon:"⚖️", label:"Check my rights",             auto:true,  prompt:"Search GOV.UK for the specific rights that apply to this housing situation. Be precise about what the landlord must do and what the tenant can do." },
@@ -125,34 +142,52 @@ function MD({text,dark}){
 }
 
 // ─── TTS HOOK ─────────────────────────────────────────────────────────────────
+// ── Shared, single-voice TTS state ──
+// One audio element and one "generation" counter live at module scope so that
+// EVERY useTTS() instance (onboarding, capabilities, each workspace) speaks
+// through the same channel. Starting a new utterance — or switching workspace —
+// cancels whatever is playing or being fetched, so two voices can never overlap.
+let ttsAudio=null;
+let ttsGen=0;
+function stopTTS(){
+  ttsGen++; // invalidate any in-flight fetch so it won't play when it returns
+  if(ttsAudio){
+    try{ttsAudio.pause();}catch{}
+    try{if(ttsAudio.src)URL.revokeObjectURL(ttsAudio.src);}catch{}
+    ttsAudio=null;
+  }
+}
+
 function useTTS(){
   const[muted,setMuted]=useState(false);
-  const audioRef=useRef(null);
+  const mutedRef=useRef(false);
+  useEffect(()=>{mutedRef.current=muted;},[muted]);
 
-  const speak=useCallback(async(text,priority=false)=>{
-    if(muted||!text)return;
+  const speak=useCallback(async(text)=>{
+    if(mutedRef.current||!text)return;
+    // Any new utterance supersedes the current one immediately.
+    stopTTS();
+    const myGen=ttsGen;
     try{
-      // Stop current audio if priority (new message)
-      if(priority&&audioRef.current){audioRef.current.pause();}
       const clean=text.replace(/\*\*/g,"").replace(/→/g,"").replace(/\n\n/g," ").trim().slice(0,600);
       const res=await apiFetch("/.netlify/functions/elevenlabs-tts",{text:clean});
-      if(!res.ok)return;
+      if(!res.ok||myGen!==ttsGen)return; // superseded while fetching
       const{audio,mimeType}=await res.json();
-      if(!audio)return;
+      if(!audio||myGen!==ttsGen)return;
       const blob=new Blob([Uint8Array.from(atob(audio),c=>c.charCodeAt(0))],{type:mimeType});
       const url=URL.createObjectURL(blob);
-      if(audioRef.current&&!priority){audioRef.current.pause();URL.revokeObjectURL(audioRef.current.src);}
+      if(myGen!==ttsGen){URL.revokeObjectURL(url);return;}
       const a=new Audio(url);
-      audioRef.current=a;
-      // Register with global ref so page changes can stop it
+      ttsAudio=a;
+      // Register with global ref so page changes can stop it too.
       if(window.globalAudioRef){window.globalAudioRef.current=a;}
       a.play().catch(()=>{});
-      a.onended=()=>URL.revokeObjectURL(url);
+      a.onended=()=>{try{URL.revokeObjectURL(url);}catch{}};
     }catch{}
-  },[muted]);
+  },[]);
 
-  const stop=()=>{if(audioRef.current)audioRef.current.pause();};
-  return{speak,stop,muted,toggleMute:()=>setMuted(m=>!m)};
+  const stop=useCallback(()=>{stopTTS();},[]);
+  return{speak,stop,muted,toggleMute:()=>setMuted(m=>{const n=!m;if(n)stopTTS();return n;})};
 }
 
 // ─── VOICE INPUT HOOK ─────────────────────────────────────────────────────────
@@ -1018,6 +1053,9 @@ function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
   const sayGreeting=()=>{if(!greetedRef.current){greetedRef.current=true;speak(initGreet);}};
   useEffect(()=>{if(dash)sayGreeting();},[dash]);// eslint-disable-line
   useEffect(()=>{const t=setTimeout(sayGreeting,6000);return()=>clearTimeout(t);},[]);// eslint-disable-line
+  // Silence this workspace's voice the moment we leave it (e.g. switching workspace),
+  // so its greeting can never overlap the next workspace's.
+  useEffect(()=>()=>stop(),[]);// eslint-disable-line
 
   // Load the real "what Aiveree remembers" data (same source as the Memory tab).
   useEffect(()=>{
@@ -1925,7 +1963,7 @@ export default function App(){
       {screen==="home"&&<Homepage onStart={startOnboarding} mobile={mobile}/>}
       {screen==="onboarding"&&<Onboarding selectedDomain={selectedDomain} initialIdea={initialIdea} onComplete={handleOnboardingComplete} mobile={mobile}/>}
       {screen==="auth"&&<AuthScreen onAuth={handleAuth} prefilledIntel={pendingIntel||intel} mobile={mobile}/>}
-      {screen==="dashboard"&&intel&&user&&<CommandCentre intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
+      {screen==="dashboard"&&intel&&user&&<CommandCentre key={intel?.goal||"ws"} intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
       {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
