@@ -1628,6 +1628,182 @@ Do the actual work now. Produce a genuinely useful, specific deliverable — rea
   );
 }
 
+// ─── BUILD STUDIO ─────────────────────────────────────────────────────────────
+// Phase 1: describe → Claude generates ONE self-contained HTML page → live
+// sandboxed preview → iterate in plain English → download. Publishing to a
+// shareable URL comes in Phase 2 (served from a separate origin for safety).
+const BUILD_SYSTEM=`You are Aiveree's builder. You turn a plain-English request into ONE complete, self-contained web page.
+
+Rules:
+- Output a SINGLE valid HTML document starting with <!doctype html> and ending with </html>.
+- Put ALL CSS in a <style> tag and ALL JavaScript in a <script> tag in the same file. No external files, no build step, no imports that need bundling.
+- You MAY load libraries or fonts from a CDN via <script src> or <link href> (e.g. cdnjs, Google Fonts) when they genuinely help.
+- Make it responsive and genuinely well designed on both phone and desktop. Real, usable design, not a placeholder.
+- Use real, sensible content relevant to the request. Never "lorem ipsum" filler.
+- If the page needs interactivity (a form, a calculator, tabs), make it actually work in the browser with vanilla JavaScript.
+- Do not include explanations, notes to the user, or markdown fences. Return ONLY the HTML document itself.`;
+
+function extractHTML(t){
+  if(!t)return"";
+  let s=String(t).trim();
+  const fence=s.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  if(fence)s=fence[1].trim();
+  const lo=s.search(/<!doctype html>|<html[\s>]/i);
+  if(lo>0)s=s.slice(lo);
+  return s.trim();
+}
+
+function BuildStudio({user,credits,onCreditUsed,mobile}){
+  const[prompt,setPrompt]=useState("");
+  const[html,setHtml]=useState("");
+  const[title,setTitle]=useState("");
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const[iterInp,setIterInp]=useState("");
+  const[showCode,setShowCode]=useState(false);
+  const[showGate,setShowGate]=useState(false);
+  const[showPublish,setShowPublish]=useState(false);
+  const[frameKey,setFrameKey]=useState(0);
+  const previewRef=useRef(null);
+
+  const EXAMPLES=[
+    "A landing page for my candle business with an email sign-up",
+    "A one-page booking form for a mobile dog groomer",
+    "A simple portfolio site for a freelance photographer",
+    "A pricing page with three tiers and a monthly/yearly toggle",
+  ];
+
+  const run=async(userText,isIterate)=>{
+    const text=(userText||"").trim();
+    if(!text||busy)return;
+    if(credits<=0){setShowGate(true);return;}
+    setBusy(true);setErr("");
+    try{
+      const messages=isIterate
+        ? [{role:"user",content:`Here is the current page:\n\n${html}\n\nMake this change: ${text}\n\nReturn the FULL updated HTML document.`}]
+        : [{role:"user",content:`Build this: ${text}`}];
+      const res=await apiFetch("/.netlify/functions/claude",{messages,system:BUILD_SYSTEM});
+      if(res.status===402){setShowGate(true);saveCredits(0);onCreditUsed(0);setBusy(false);return;}
+      const data=await res.json();
+      if(typeof data.credits_remaining==="number"){saveCredits(data.credits_remaining);onCreditUsed(data.credits_remaining);}
+      const raw=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"";
+      const doc=extractHTML(raw);
+      if(!doc||!/<html|<!doctype/i.test(doc)){setErr(data.detail||data.error||"That didn't come back as a page. Try describing it a little differently.");setBusy(false);return;}
+      setHtml(doc);setFrameKey(k=>k+1);
+      if(!isIterate){setTitle(text.slice(0,60));setIterInp("");}
+      else setIterInp("");
+    }catch{setErr("Something went wrong. Please try again.");}
+    setBusy(false);
+  };
+
+  const downloadHTML=()=>{
+    try{
+      const blob=new Blob([html],{type:"text/html"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");
+      a.href=url;a.download=`${safeFileName(title,"aiveree-site")}.html`;
+      document.body.appendChild(a);a.click();
+      setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},0);
+    }catch{}
+  };
+
+  const card={background:"#fff",border:"1px solid #e8e8e8",borderRadius:14};
+
+  // ── Empty state: describe what to build ──
+  if(!html){
+    return(
+      <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+        {showGate&&<CreditGate onClose={()=>setShowGate(false)}/>}
+        <div style={{maxWidth:760,margin:"0 auto",padding:mobile?"30px 16px 80px":"56px 28px 80px"}}>
+          <div style={{textAlign:"center",marginBottom:26}}>
+            <div style={{width:52,height:52,borderRadius:14,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:16}}>🛠️</div>
+            <h1 style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:mobile?24:32,letterSpacing:-0.5,color:"#000",marginBottom:8}}>Build something real</h1>
+            <p style={{fontSize:14,color:"#888",fontWeight:300,fontFamily:"Inter,sans-serif",lineHeight:1.6,maxWidth:460,margin:"0 auto"}}>Describe a site or page in plain English. Aiveree builds it, you see it live, and you shape it by just asking.</p>
+          </div>
+          <div style={{...card,padding:mobile?16:20,marginBottom:16}}>
+            <textarea value={prompt} onChange={e=>setPrompt(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();run(prompt,false);}}}
+              placeholder="e.g. A landing page for my candle business with an email sign-up form and a warm, cosy feel"
+              rows={4}
+              style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:10,padding:"13px 15px",fontSize:14,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"vertical",lineHeight:1.6,boxSizing:"border-box"}}/>
+            {err&&<p style={{fontSize:12,color:"#c1440e",marginTop:8,fontFamily:"Inter,sans-serif"}}>{err}</p>}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,gap:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>{credits} tasks left · uses 1 task</span>
+              <button onClick={()=>run(prompt,false)} disabled={busy||!prompt.trim()}
+                style={{background:"#000",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:14,color:"#fff",fontWeight:500,cursor:busy||!prompt.trim()?"not-allowed":"pointer",opacity:busy||!prompt.trim()?0.4:1,fontFamily:"Inter,sans-serif"}}>{busy?"Building…":"Build it →"}</button>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif",marginBottom:2}}>Or start from an idea</div>
+            {EXAMPLES.map((ex,i)=>(
+              <button key={i} onClick={()=>{setPrompt(ex);}} style={{textAlign:"left",background:"#fff",border:"1px solid #eee",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif",fontWeight:300}}>{ex}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Builder: preview + iterate ──
+  return(
+    <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+      {showGate&&<CreditGate onClose={()=>setShowGate(false)}/>}
+      {showPublish&&(
+        <div onClick={()=>setShowPublish(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,backdropFilter:"blur(6px)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{...card,padding:26,maxWidth:400,textAlign:"center"}}>
+            <div style={{fontSize:30,marginBottom:10}}>🌐</div>
+            <h3 style={{fontFamily:"Inter,sans-serif",fontWeight:400,fontSize:19,color:"#000",marginBottom:8}}>Publishing is coming next</h3>
+            <p style={{fontSize:13,color:"#777",lineHeight:1.7,fontWeight:300,fontFamily:"Inter,sans-serif",marginBottom:18}}>Very soon you'll publish this to a shareable Aiveree link in one click. For now you can download it and put it anywhere. We're setting up safe hosting on a separate address first.</p>
+            <button onClick={()=>{setShowPublish(false);downloadHTML();}} style={{background:"#000",border:"none",borderRadius:9999,padding:"11px 20px",fontSize:13,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif",marginBottom:8,width:"100%"}}>Download the file instead</button>
+            <button onClick={()=>setShowPublish(false)} style={{background:"none",border:"none",color:"#bbb",cursor:"pointer",fontSize:12,fontFamily:"Inter,sans-serif"}}>Close</button>
+          </div>
+        </div>
+      )}
+      <div style={{maxWidth:1280,margin:"0 auto",padding:mobile?"14px 12px 80px":"18px 24px 40px"}}>
+        {/* toolbar */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:"Inter,sans-serif",fontSize:13,fontWeight:500,color:"#000",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{title||"Your build"}</div>
+            <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>Live preview · runs in a safe sandbox</div>
+          </div>
+          <button onClick={()=>setShowCode(c=>!c)} style={{background:showCode?"#f0edfb":"#f5f5f5",border:`1px solid ${showCode?"#d9cffb":"#e5e5e5"}`,borderRadius:9999,padding:"7px 14px",fontSize:12,color:showCode?"#5b21b6":"#555",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>{showCode?"Preview":"Code"}</button>
+          <button onClick={downloadHTML} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"7px 14px",fontSize:12,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Download</button>
+          <button onClick={()=>setShowPublish(true)} style={{background:"#000",border:"none",borderRadius:9999,padding:"7px 16px",fontSize:12,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Publish</button>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"340px 1fr",gap:14,alignItems:"start"}}>
+          {/* iterate panel */}
+          <div style={{...card,padding:16,position:mobile?"relative":"sticky",top:70}}>
+            <div style={{fontFamily:"Inter,sans-serif",fontWeight:500,fontSize:12,color:"#000",marginBottom:4}}>Shape it</div>
+            <p style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif",fontWeight:300,marginBottom:12,lineHeight:1.5}}>Tell Aiveree what to change and she'll rebuild the page.</p>
+            <textarea value={iterInp} onChange={e=>setIterInp(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();run(iterInp,true);}}}
+              placeholder="e.g. Make the header dark green and add a photo gallery"
+              rows={3}
+              style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:9,padding:"10px 12px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"vertical",lineHeight:1.5,boxSizing:"border-box"}}/>
+            {err&&<p style={{fontSize:11,color:"#c1440e",marginTop:7,fontFamily:"Inter,sans-serif"}}>{err}</p>}
+            <button onClick={()=>run(iterInp,true)} disabled={busy||!iterInp.trim()}
+              style={{width:"100%",marginTop:10,background:"#000",border:"none",borderRadius:9,padding:"10px",fontSize:13,color:"#fff",fontWeight:500,cursor:busy||!iterInp.trim()?"not-allowed":"pointer",opacity:busy||!iterInp.trim()?0.4:1,fontFamily:"Inter,sans-serif"}}>{busy?"Rebuilding…":"Update the page"}</button>
+            <div style={{fontSize:10,color:"#ccc",marginTop:8,fontFamily:"Inter,sans-serif",textAlign:"center"}}>{credits} tasks left · each change uses 1</div>
+          </div>
+
+          {/* preview / code */}
+          <div style={{...card,overflow:"hidden",minHeight:mobile?420:600,position:"relative"}}>
+            {busy&&<div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.6)",zIndex:5,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(2px)"}}><div style={{display:"flex",gap:5}}>{[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:4,background:"#5b21b6",animation:`pulse 1.2s ease ${i*.2}s infinite`}}/>)}</div></div>}
+            {showCode?(
+              <pre style={{margin:0,padding:16,fontSize:11.5,lineHeight:1.6,color:"#333",fontFamily:"ui-monospace,Menlo,monospace",whiteSpace:"pre-wrap",wordBreak:"break-word",maxHeight:mobile?420:600,overflow:"auto"}}>{html}</pre>
+            ):(
+              <iframe key={frameKey} ref={previewRef} title="preview" srcDoc={html}
+                sandbox="allow-scripts allow-forms allow-popups allow-modals"
+                style={{width:"100%",height:mobile?420:600,border:"none",display:"block",background:"#fff"}}/>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PROJECTS ─────────────────────────────────────────────────────────────────
 // ─── MEMORY CENTRE ────────────────────────────────────────────────────────────
 // The real, wired "what Aiveree remembers" surface: view/edit/forget memories,
@@ -1943,6 +2119,7 @@ export default function App(){
               <nav style={{flex:1,display:"flex",alignItems:"center",marginLeft:28}}>
                 <button onClick={()=>setScreen("dashboard")} style={{background:"none",border:"none",color:screen==="dashboard"?"#000":"#999",fontSize:13,fontWeight:screen==="dashboard"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Dashboard</button>
                 <button onClick={()=>setScreen("projects")} style={{background:"none",border:"none",color:screen==="projects"?"#000":"#999",fontSize:13,fontWeight:screen==="projects"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Workspaces</button>
+                <button onClick={()=>setScreen("build")} style={{background:"none",border:"none",color:screen==="build"?"#000":"#999",fontSize:13,fontWeight:screen==="build"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Build</button>
                 <button onClick={()=>setScreen("memory")} style={{background:"none",border:"none",color:screen==="memory"?"#000":"#999",fontSize:13,fontWeight:screen==="memory"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Memory</button>
               </nav>
             )}
@@ -1965,6 +2142,7 @@ export default function App(){
       {screen==="auth"&&<AuthScreen onAuth={handleAuth} prefilledIntel={pendingIntel||intel} mobile={mobile}/>}
       {screen==="dashboard"&&intel&&user&&<CommandCentre key={intel?.goal||"ws"} intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
+      {screen==="build"&&user&&<BuildStudio user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile}/>}
       {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
   );
