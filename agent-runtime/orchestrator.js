@@ -35,25 +35,27 @@ function persister(store, runId) {
 
 async function startRun({ store, run_id, user_id, task, start_url, llm, headless = true }) {
   await store.createRun({ id: run_id, user_id, task, start_url, status: 'running' });
-  const browser = new Browser();
-  // Per-run isolated cloud browser in production (with a live-view URL for
-  // human takeover); local Chromium if no provider is configured.
-  let cloud = null;
-  try { cloud = await createCloudBrowser(); } catch (e) { await store.updateRun(run_id, { thought: `cloud browser unavailable, using local: ${e.message}` }); }
-  await browser.start({ headless, wsEndpoint: cloud?.wsUrl });
-  if (cloud?.liveUrl) await store.updateRun(run_id, { live_url: cloud.liveUrl });
-  const onEvent = persister(store, run_id);
-  const rec = { browser, messages: null, toolUseId: null, status: 'running' };
+  const rec = { browser: null, messages: null, toolUseId: null, status: 'running' };
   active.set(run_id, rec);
 
+  // Everything heavy (cloud-browser session, launch, the run loop) happens in
+  // the background so the HTTP caller gets run_id back immediately and polls.
   (async () => {
     try {
+      let cloud = null;
+      try { cloud = await createCloudBrowser(); } catch (e) { await store.updateRun(run_id, { thought: `cloud browser unavailable, using local: ${e.message}` }); }
+      const browser = new Browser();
+      await browser.start({ headless, wsEndpoint: cloud?.wsUrl });
+      rec.browser = browser;
+      if (cloud?.liveUrl) await store.updateRun(run_id, { live_url: cloud.liveUrl });
+
+      const onEvent = persister(store, run_id);
       const state = await runTask({ browser, task, startUrl: start_url, onEvent, llm });
       rec.messages = state.messages; rec.status = state.status; rec.toolUseId = state.toolUseId;
       if (state.status === 'complete' || state.status === 'stopped') { await browser.close(); active.delete(run_id); }
     } catch (err) {
       await store.updateRun(run_id, { status: 'error', result: String((err && err.message) || err) });
-      try { await browser.close(); } catch {}
+      try { await rec.browser?.close(); } catch {}
       active.delete(run_id);
     }
   })();
