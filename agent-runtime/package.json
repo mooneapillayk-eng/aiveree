@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node service.js",
     "smoke": "node smoke.js",
-    "test": "node test/integration.js && node test/service.test.js"
+    "test": "node test/integration.js && node test/service.test.js && node test/guardrails.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

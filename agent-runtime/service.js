@@ -14,7 +14,7 @@
 
 const http = require('http');
 const { makeStore } = require('./store');
-const { startRun, resumeRun } = require('./orchestrator');
+const { startRun, resumeRun, cancelRun } = require('./orchestrator');
 
 const SECRET = process.env.INTERNAL_SECRET;
 const PORT = process.env.PORT || 8080;
@@ -55,6 +55,12 @@ const server = http.createServer(async (req, res) => {
       if (!b.run_id) return send(res, 400, { error: 'run_id required' });
       const out = await resumeRun({ store, run_id: b.run_id, note: b.note || 'Approved' });
       return send(res, out.error ? 409 : 200, out);
+    }
+
+    if (req.method === 'POST' && url.pathname === '/cancel') {
+      const b = await readBody(req);
+      if (!b.run_id) return send(res, 400, { error: 'run_id required' });
+      return send(res, 200, await cancelRun({ store, run_id: b.run_id }));
     }
 
     if (req.method === 'GET' && url.pathname === '/status') {

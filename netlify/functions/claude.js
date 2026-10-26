@@ -12,7 +12,6 @@ const {
   clientIp,
   INTERNAL_HEADERS,
   json,
-  supabase,
 } = require('./lib/shared');
 
 // Reject obviously abusive payloads early.
@@ -122,17 +121,7 @@ exports.handler = async (event) => {
     const user = await getOptionalUser(event);
     const onboarding = mode === 'onboarding';
     if (!user && !onboarding) {
-      // Temporary diagnostic: why is the login token being rejected?
-      const raw = event.headers?.authorization || event.headers?.Authorization || '';
-      const tok = raw.startsWith('Bearer ') ? raw.slice(7) : '';
-      let dbg = `tokenPresent:${!!tok} len:${tok.length}`;
-      if (tok) {
-        try {
-          const r = await supabase.auth.getUser(tok);
-          dbg += ` getUser:${r.data && r.data.user ? 'ok' : 'null'} err:${(r.error && r.error.message) || 'none'}`;
-        } catch (e) { dbg += ` getUserThrew:${e.message}`; }
-      }
-      return json(401, CORS, { error: 'Authentication required', detail: dbg });
+      return json(401, CORS, { error: 'Authentication required' });
     }
 
     // ── Request size cap ───────────────────────────────────────────────────────
@@ -213,7 +202,8 @@ exports.handler = async (event) => {
           lastError = `API error ${res.status}: ${err}`;
           // Don't retry on upstream auth errors.
           if (res.status === 401 || res.status === 403) {
-            return json(502, CORS, { error: 'Upstream auth error', detail: lastError });
+            console.error('Upstream auth error:', lastError);
+            return json(502, CORS, { error: 'Upstream auth error' });
           }
           continue;
         }
@@ -251,7 +241,7 @@ exports.handler = async (event) => {
 
     if (!result) {
       console.error('All attempts failed:', lastError);
-      return json(502, CORS, { error: 'Upstream model error', detail: lastError });
+      return json(502, CORS, { error: 'Upstream model error' });
     }
 
     if (userId && eventType) {
@@ -262,6 +252,6 @@ exports.handler = async (event) => {
     return { statusCode: 200, headers: CORS, body: JSON.stringify(payload) };
   } catch (err) {
     console.error('Claude service error:', err);
-    return json(500, CORS, { error: 'Claude service failed', detail: err.message });
+    return json(500, CORS, { error: 'Claude service failed' });
   }
 };

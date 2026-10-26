@@ -80,13 +80,30 @@ async function applyComputerAction(browser, input) {
   }
 }
 
-// Run until the agent reaches a checkpoint (login/approval) or completes.
-// onEvent({type, ...}) streams progress. Returns {status, messages, ...}.
-// `llm` is injectable so the loop can be proven against a stubbed model in tests
-// (same contract as the real Anthropic call).
-async function runTask({ browser, task, startUrl, messages = null, onEvent = () => {}, maxSteps = 40, llm = anthropic }) {
+// ── Guardrails (hard limits, independent of the model's judgement) ──
+function hostOf(u) { try { return new URL(u).host.replace(/^www\./, ''); } catch { return ''; } }
+function isAllowed(u, allow) {
+  if (!allow || !allow.length) return true;      // empty list = allow all (dev)
+  const h = hostOf(u);
+  if (!h) return true;                           // about:blank / data: etc.
+  return allow.some((a) => h === a || h.endsWith('.' + a));
+}
+const PAY_RE = /checkout|payment|\/pay(\b|ment)|billing|basket|stripe|paypal|klarna|worldpay|card-?details|place-?order|buy-?now/i;
+function looksLikePayment(url, text) { return PAY_RE.test(url || '') || PAY_RE.test((text || '').slice(0, 2000)); }
+async function safeText(browser) { try { return await browser.text(); } catch { return ''; } }
+const tr = (id, text, shot) => ({ type: 'tool_result', tool_use_id: id, content: shot ? [{ type: 'text', text }, shotBlock(shot)] : [{ type: 'text', text }] });
+
+// Run until the agent reaches a checkpoint, is cancelled, or completes.
+//  guard        {allowlist:[], disallowPayments:true} — hard rails
+//  shouldStop() lets a human cancel mid-run
+//  timeBudgetMs caps wall-clock
+//  llm          injectable (stubbed in tests)
+async function runTask({ browser, task, startUrl, messages = null, onEvent = () => {}, maxSteps = 40, llm = anthropic, guard = {}, shouldStop = () => false, timeBudgetMs = 10 * 60 * 1000 }) {
   const { width, height } = await browser.size();
   const tools = computerTools(width, height);
+  const allowlist = guard.allowlist || [];
+  const disallowPayments = guard.disallowPayments !== false; // default ON
+  const started = Date.now();
 
   if (!messages) {
     if (startUrl) await browser.goto(startUrl);
@@ -98,6 +115,9 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
   }
 
   for (let step = 0; step < maxSteps; step++) {
+    if (shouldStop()) { onEvent({ type: 'stopped', reason: 'cancelled' }); return { status: 'stopped', reason: 'cancelled', messages }; }
+    if (Date.now() - started > timeBudgetMs) { onEvent({ type: 'stopped', reason: 'time_budget' }); return { status: 'stopped', reason: 'time_budget', messages }; }
+
     const reply = await llm(messages, tools, SAFETY);
     messages.push({ role: 'assistant', content: reply.content });
 
@@ -107,7 +127,7 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
 
     if (toolUses.length === 0) { onEvent({ type: 'idle', text: sayText }); return { status: 'stopped', reason: 'no_action', messages }; }
 
-    // Handle control tools first (they end the turn).
+    // Control tools end the turn; the pending tool_use is answered on resume.
     const login = toolUses.find((t) => t.name === 'request_human_login');
     if (login) { onEvent({ type: 'checkpoint', kind: 'login', ...login.input }); return { status: 'needs_login', toolUseId: login.id, messages }; }
     const approval = toolUses.find((t) => t.name === 'request_approval');
@@ -115,16 +135,45 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
     const done = toolUses.find((t) => t.name === 'task_complete');
     if (done) { onEvent({ type: 'done', ...done.input }); return { status: 'complete', ...done.input, messages }; }
 
-    // Otherwise, apply every computer action and return fresh screenshots.
+    // Computer actions, with the rails applied.
     const results = [];
+    let payBlock = null;
     for (const t of toolUses) {
+      const act = t.input && t.input.action;
+      const clickish = ['left_click', 'double_click', 'key'].includes(act);
+      const curUrl = await browser.url();
+
+      // HARD RAIL 1 — payment/checkout: never click without explicit approval.
+      // Detected before the click; leave the action unexecuted and park for a
+      // human yes (executed on resume).
+      if (clickish && disallowPayments && looksLikePayment(curUrl, await safeText(browser))) {
+        payBlock = { toolUseId: t.id, pendingAction: t.input,
+          summary: `This looks like a payment or checkout step on ${hostOf(curUrl) || 'this site'}. Approve before Aiveree continues.`,
+          details: 'Payment and checkout actions are always held for your explicit approval.' };
+        break; // single-action turns in practice; park the whole turn
+      }
+
       let label = 'noop';
       try { label = await applyComputerAction(browser, t.input); } catch (e) { label = `error:${e.message}`; }
-      const shot = await browser.screenshot();
+      let shot = await browser.screenshot();
       onEvent({ type: 'step', action: label, url: await browser.url(), screenshot: shot });
-      results.push({ type: 'tool_result', tool_use_id: t.id, content: [
-        { type: 'text', text: `Done: ${label}. Current screen:` }, shotBlock(shot),
-      ] });
+
+      // HARD RAIL 2 — site allowlist: if the action left the allowed set, go
+      // back and tell the model (no human pause; the model must stay on-list or
+      // ask for approval itself).
+      const after = await browser.url();
+      if (!isAllowed(after, allowlist)) {
+        try { await browser.page.goBack({ waitUntil: 'domcontentloaded' }); } catch {}
+        shot = await browser.screenshot();
+        results.push(tr(t.id, `${hostOf(after) || 'That site'} is outside the allowed list, so I did not continue there. Back on the previous page.`, shot));
+      } else {
+        results.push(tr(t.id, `Done: ${label}. Current screen:`, shot));
+      }
+    }
+
+    if (payBlock) {
+      onEvent({ type: 'checkpoint', kind: 'approval', summary: payBlock.summary, details: payBlock.details });
+      return { status: 'needs_approval', toolUseId: payBlock.toolUseId, pendingAction: payBlock.pendingAction, messages };
     }
     messages.push({ role: 'user', content: results });
   }
@@ -132,16 +181,22 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
   return { status: 'stopped', reason: 'max_steps', messages };
 }
 
-// Resume after a human acted on a checkpoint. humanNote tells the agent what
-// happened ("I've logged in", "Approved" / "No, change the date to Saturday").
-async function resumeTask({ browser, toolUseId, humanNote, messages, onEvent = () => {}, maxSteps = 40, llm = anthropic }) {
-  const shot = await browser.screenshot();
-  messages.push({ role: 'user', content: [
-    { type: 'tool_result', tool_use_id: toolUseId, content: [
-      { type: 'text', text: `${humanNote}. Current screen:` }, shotBlock(shot),
-    ] },
-  ] });
-  return runTask({ browser, messages, onEvent, maxSteps, llm });
+// Resume after a human handled a checkpoint. If pendingAction is set (a payment
+// step the human approved), execute exactly that action now; otherwise just feed
+// the human's note back in. Either way we answer the dangling tool_use, keeping
+// the user/assistant turns strictly alternating.
+async function resumeTask({ browser, toolUseId, humanNote, messages, pendingAction = null, onEvent = () => {}, llm = anthropic, guard = {}, shouldStop = () => false, timeBudgetMs }) {
+  if (pendingAction) {
+    let label = 'noop';
+    try { label = await applyComputerAction(browser, pendingAction); } catch (e) { label = `error:${e.message}`; }
+    const shot = await browser.screenshot();
+    onEvent({ type: 'step', action: label, url: await browser.url(), screenshot: shot });
+    messages.push({ role: 'user', content: [tr(toolUseId, `Approved. Done: ${label}. Current screen:`, shot)] });
+  } else {
+    const shot = await browser.screenshot();
+    messages.push({ role: 'user', content: [tr(toolUseId, `${humanNote}. Current screen:`, shot)] });
+  }
+  return runTask({ browser, messages, onEvent, llm, guard, shouldStop, timeBudgetMs });
 }
 
-module.exports = { runTask, resumeTask, SAFETY, MODEL };
+module.exports = { runTask, resumeTask, SAFETY, MODEL, hostOf, isAllowed, looksLikePayment };

@@ -57,9 +57,21 @@ Redeploy the site (push to the production branch, or hit redeploy). Done — the
 - Service HTTP contract (auth, validation, health) tested.
 - The app builds and the Act UI renders the live view + checkpoints.
 
-## Safety posture in v1
+## Safety posture in v1 (hard rails, now enforced in code)
 - Aiveree **never types passwords** — logins are handed to the user.
-- **Explicit approval** before anything irreversible (send/submit/pay/delete/post).
+- **Explicit approval** before anything the model flags as irreversible.
+- **Payment/checkout steps are always held for approval** — enforced in code, not
+  just by the prompt. A click on a page that looks like checkout/payment pauses
+  and waits for your yes. Set `ALLOW_PAYMENTS=true` only if you really want that.
+- **Site allowlist** — set `ALLOWED_DOMAINS=example.com,supplier.co.uk` to confine
+  the agent to those domains (and subdomains). Off-list navigation is reversed
+  automatically. Leave unset to allow anywhere (fine while testing).
+- **Stop button** cancels a run; **time budget** (`timeBudgetMs`, default 10 min)
+  and a **max-steps** cap bound every run.
 - Full action log + a screenshot of the current screen on every step.
-- **Recommended for v1: don't allow payments.** The approval gate covers it, but
-  a hard spend-block + a site allowlist are the first hardening steps (Phase D).
+
+### Optional safety env (set as fly secrets)
+- `ALLOWED_DOMAINS` — comma-separated allowlist (recommended once you know the
+  sites you want). Unset = anywhere.
+- `ALLOW_PAYMENTS` — `true` to permit checkout clicks without the hard hold.
+  Leave unset/false for v1.

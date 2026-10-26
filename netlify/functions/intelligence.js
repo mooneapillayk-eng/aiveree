@@ -117,14 +117,38 @@ If any field is not mentioned, use an empty string or empty array.`;
           messages: [{role:"user", content: JSON.stringify(conversation)}]
         })
       });
-      const claudeData = await claudeRes.json();
-      const summaryText = claudeData.content?.[0]?.text || '{}';
+      // If the upstream model call failed, do NOT touch the saved profile —
+      // overwriting with blanks would wipe the user's data.
+      if (!claudeRes.ok) {
+        const errText = await claudeRes.text().catch(() => '');
+        console.error('Intelligence summarise upstream error:', claudeRes.status, errText);
+        return {statusCode:502,headers:h,body:JSON.stringify({error:'Upstream model error'})};
+      }
 
-      let parsed;
+      const claudeData = await claudeRes.json();
+      const summaryText = claudeData.content?.[0]?.text || '';
+
+      // Parse the model output into a profile object. If it cannot be parsed
+      // into a usable (non-empty) profile, bail out WITHOUT writing anything so
+      // we never clobber existing fields or flip onboarding_complete.
+      let parsed = null;
       try {
         parsed = JSON.parse(summaryText.replace(/```json|```/g,'').trim());
       } catch {
-        parsed = { profile_summary: summaryText };
+        parsed = null;
+      }
+
+      const hasUsableProfile = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        && ['name','goal','context','blockers','experience_level','interests','profile_summary']
+          .some((k) => {
+            const v = parsed[k];
+            if (Array.isArray(v)) return v.length > 0;
+            return typeof v === 'string' ? v.trim().length > 0 : v !== undefined && v !== null;
+          });
+
+      if (!hasUsableProfile) {
+        console.error('Intelligence summarise: no usable profile parsed from model output');
+        return {statusCode:502,headers:h,body:JSON.stringify({error:'Failed to build profile from conversation'})};
       }
 
       // Save to database

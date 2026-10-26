@@ -1681,6 +1681,10 @@ function AgentConsole({user,credits,onCreditUsed,mobile}){
     setBusy(false);
   };
 
+  const cancel=async()=>{
+    try{await apiFetch("/.netlify/functions/agent-cancel",{run_id:runId});}catch{}
+    setRun(r=>r?{...r,status:"stopped",result:"Stopped by you."}:r);
+  };
   const reset=()=>{setRunId(null);setRun(null);setSteps([]);setTask("");setStartUrl("");setErr("");};
 
   const card={background:"#fff",border:"1px solid #e8e8e8",borderRadius:14};
@@ -1746,6 +1750,7 @@ function AgentConsole({user,credits,onCreditUsed,mobile}){
             <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>Aiveree is working on a real browser</div>
           </div>
           {badge(status)}
+          {activeStatus&&<button onClick={cancel} style={{background:"#fff",border:"1px solid #fecaca",borderRadius:9999,padding:"7px 14px",fontSize:12,color:"#c1440e",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>Stop</button>}
           {!activeStatus&&<button onClick={reset} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"7px 14px",fontSize:12,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>New task</button>}
         </div>
 
