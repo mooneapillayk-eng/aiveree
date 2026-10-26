@@ -1,0 +1,4 @@
+node_modules/
+run-shots/
+smoke-screenshot.png
+package-lock.json
