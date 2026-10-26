@@ -1169,85 +1169,63 @@ Requirements:
     })();
   },[intel?.goal]);
 
-  // ── REAL WORKSTREAM EXECUTION + PERSISTENCE ──
-  // Once the dashboard loads, actually execute each workstream as real work,
-  // and remember it so it persists across sessions.
+  // ── REAL BACKGROUND WORK ENGINE ──
+  // The work runs on the SERVER (run-workstreams-background) and is saved to the
+  // database as each deliverable finishes, so it completes whether or not this
+  // tab stays open. Here we: load anything already done, show the rest as in
+  // progress, fire the server engine once, then poll the store for results.
   useEffect(()=>{
     if(!dash?.active_workstreams?.length||wsStartedRef.current)return;
     wsStartedRef.current=true;
     const uid=user?.id;
     const cacheKey=`ws_${domainId}_${(intel.goal||"").slice(0,20).replace(/\W/g,"_")}`;
+    const total=dash.active_workstreams.length;
+    let cancelled=false;
+
+    const rowsToState=(rows)=>{const m={};(rows||[]).forEach(w=>{m[w.task_index]={status:w.status,result:w.result};});return m;};
+    const allDone=(m)=>Object.keys(m).length>=total&&dash.active_workstreams.every((_,i)=>m[i]?.status==="complete");
 
     (async()=>{
-      // 1. Try to load remembered work from the database first
+      // 1. Already finished in a previous session? Use it and stop.
       if(uid){
         try{
           const lr=await apiFetch("/.netlify/functions/workstreams",{action:"load",user_id:uid,goal:intel.goal});
           const ld=await lr.json();
-          if(ld.workstreams?.length>0){
-            const remembered={};
-            ld.workstreams.forEach(w=>{remembered[w.task_index]={status:w.status,result:w.result};});
-            // Only use remembered if it covers the current workstreams
-            if(Object.keys(remembered).length>=dash.active_workstreams.length){
-              setWsState(remembered);
-              sessionStorage.setItem(cacheKey,JSON.stringify(remembered));
-              return;
-            }
-          }
+          const m=rowsToState(ld.workstreams);
+          if(allDone(m)){setWsState(m);sessionStorage.setItem(cacheKey,JSON.stringify(m));return;}
+          if(Object.keys(m).length)setWsState(m);// partial run in flight — show what's there
+        }catch{}
+      }else{
+        const cached=sessionStorage.getItem(cacheKey);
+        if(cached){try{const c=JSON.parse(cached);if(Object.keys(c).length>=total){setWsState(c);return;}}catch{}}
+      }
+
+      // 2. Show every unstarted workstream as in progress right away.
+      setWsState(prev=>{const init={...prev};dash.active_workstreams.forEach((_,i)=>{if(!init[i])init[i]={status:"in_progress"};});return init;});
+
+      if(!uid)return;
+
+      // 3. Fire the server-side engine once. It upserts results as it goes, so a
+      //    re-fire on reload simply refreshes a stuck/partial run (self-healing).
+      apiFetch("/.netlify/functions/run-workstreams-background",{
+        goal:intel.goal,
+        workstreams:dash.active_workstreams.map((w)=>({title:w.title,detail:w.detail}))
+      }).catch(()=>{});
+
+      // 4. Poll the store for results until everything is complete (~4 min cap).
+      for(let tries=0;tries<48&&!cancelled;tries++){
+        await new Promise(r=>setTimeout(r,5000));
+        if(cancelled)return;
+        try{
+          const lr=await apiFetch("/.netlify/functions/workstreams",{action:"load",user_id:uid,goal:intel.goal});
+          const ld=await lr.json();
+          const m=rowsToState(ld.workstreams);
+          if(Object.keys(m).length){setWsState(m);sessionStorage.setItem(cacheKey,JSON.stringify(m));if(allDone(m))return;}
         }catch{}
       }
-      // Session cache fallback
-      const cached=sessionStorage.getItem(cacheKey);
-      if(cached){try{const c=JSON.parse(cached);if(Object.keys(c).length>=dash.active_workstreams.length){setWsState(c);return;}}catch{}}
-
-      // 2. No remembered work — execute fresh
-      const init={};
-      dash.active_workstreams.forEach((_,i)=>{init[i]={status:"in_progress"};});
-      setWsState(init);
-      const results={...init};
-      // Execute one workstream and persist its result.
-      const runOne=async(i)=>{
-        const ws=dash.active_workstreams[i];
-        try{
-          const needsResearch=/research|track|monitor|analy|map|identif|find|scan|market|salary|compan/i.test(ws.title+" "+ws.detail);
-          const execPrompt=`You are a specialist on Aiveree's team. Execute this real task and produce a concrete deliverable.
-
-USER GOAL: ${intel.goal}
-TASK: ${ws.title}
-WHAT IT INVOLVES: ${ws.detail}
-
-Do the actual work now. Produce a genuinely useful, specific deliverable — real findings, a real draft, a real analysis. Use specifics (names, numbers, concrete options) wherever possible. Format with short clear sections. This is real work the user will read and act on, not a description of what you would do. Keep it focused and high-value — around 200-350 words.`;
-          const res=await apiFetch("/.netlify/functions/claude",{
-            messages:[{role:"user",content:execPrompt}],
-            system:"You are a specialist executing real work for a user's goal. Produce concrete, specific, genuinely useful deliverables — never descriptions of what you would do. Use real specifics. Calm, professional, operational.",
-            useSearch:needsResearch,
-            billable:false
-          });
-          const data=await res.json();
-          const txt=data.content?data.content.filter(b=>b.type==="text").map(b=>b.text).join(""):"";
-          results[i]={status:"complete",result:txt||"Completed."};
-        }catch{
-          results[i]={status:"complete",result:"I've made progress on this — open to discuss the details."};
-        }
-        setWsState({...results});
-        sessionStorage.setItem(cacheKey,JSON.stringify(results));
-        // 3. Remember this completed work in the database
-        if(uid){
-          try{
-            apiFetch("/.netlify/functions/workstreams",{
-              action:"save",user_id:uid,goal:intel.goal,task_index:i,
-              title:ws.title,detail:ws.detail,status:"complete",result:results[i].result
-            });
-          }catch{}
-        }
-      };
-      // Run with bounded concurrency (3 at a time) rather than serially.
-      const queue=dash.active_workstreams.map((_,i)=>i);
-      const workers=Array.from({length:Math.min(3,queue.length)},async()=>{
-        while(queue.length){ await runOne(queue.shift()); }
-      });
-      await Promise.all(workers);
     })();
+
+    return()=>{cancelled=true;};
   },[dash]);
 
   const sendChat=async(ot)=>{
