@@ -5,9 +5,19 @@
 // person. Runs on local Chromium here; in production it points at a hosted
 // cloud browser (Browserbase/Steel) via CHROMIUM_WS instead.
 
+const fs = require('fs');
 const { chromium } = require('playwright');
 
-const EXECUTABLE = process.env.CHROMIUM_PATH || '/opt/pw-browsers/chromium';
+// Resolve which Chromium to launch:
+//  • CHROMIUM_PATH if set (explicit override)
+//  • the pre-provisioned binary at /opt/pw-browsers (this dev/cloud box)
+//  • otherwise let Playwright use the browser bundled with its image (Docker)
+function resolveExecutable() {
+  if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+  try { if (fs.existsSync('/opt/pw-browsers/chromium')) return '/opt/pw-browsers/chromium'; } catch {}
+  return undefined; // Playwright finds its own
+}
+const EXECUTABLE = resolveExecutable();
 
 class Browser {
   constructor() { this.browser = null; this.context = null; this.page = null; }
@@ -18,11 +28,9 @@ class Browser {
       this.browser = await chromium.connectOverCDP(process.env.CHROMIUM_WS);
       this.context = this.browser.contexts()[0] || await this.browser.newContext();
     } else {
-      this.browser = await chromium.launch({
-        executablePath: EXECUTABLE,
-        headless,
-        args: ['--no-sandbox', '--disable-dev-shm-usage'],
-      });
+      const opts = { headless, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
+      if (EXECUTABLE) opts.executablePath = EXECUTABLE;
+      this.browser = await chromium.launch(opts);
       this.context = await this.browser.newContext({ viewport: { width, height } });
     }
     this.page = this.context.pages()[0] || await this.context.newPage();

@@ -82,7 +82,9 @@ async function applyComputerAction(browser, input) {
 
 // Run until the agent reaches a checkpoint (login/approval) or completes.
 // onEvent({type, ...}) streams progress. Returns {status, messages, ...}.
-async function runTask({ browser, task, startUrl, messages = null, onEvent = () => {}, maxSteps = 40 }) {
+// `llm` is injectable so the loop can be proven against a stubbed model in tests
+// (same contract as the real Anthropic call).
+async function runTask({ browser, task, startUrl, messages = null, onEvent = () => {}, maxSteps = 40, llm = anthropic }) {
   const { width, height } = await browser.size();
   const tools = computerTools(width, height);
 
@@ -96,7 +98,7 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
   }
 
   for (let step = 0; step < maxSteps; step++) {
-    const reply = await anthropic(messages, tools, SAFETY);
+    const reply = await llm(messages, tools, SAFETY);
     messages.push({ role: 'assistant', content: reply.content });
 
     const toolUses = (reply.content || []).filter((b) => b.type === 'tool_use');
@@ -132,14 +134,14 @@ async function runTask({ browser, task, startUrl, messages = null, onEvent = () 
 
 // Resume after a human acted on a checkpoint. humanNote tells the agent what
 // happened ("I've logged in", "Approved" / "No, change the date to Saturday").
-async function resumeTask({ browser, toolUseId, humanNote, messages, onEvent = () => {}, maxSteps = 40 }) {
+async function resumeTask({ browser, toolUseId, humanNote, messages, onEvent = () => {}, maxSteps = 40, llm = anthropic }) {
   const shot = await browser.screenshot();
   messages.push({ role: 'user', content: [
     { type: 'tool_result', tool_use_id: toolUseId, content: [
       { type: 'text', text: `${humanNote}. Current screen:` }, shotBlock(shot),
     ] },
   ] });
-  return runTask({ browser, messages, onEvent, maxSteps });
+  return runTask({ browser, messages, onEvent, maxSteps, llm });
 }
 
 module.exports = { runTask, resumeTask, SAFETY, MODEL };

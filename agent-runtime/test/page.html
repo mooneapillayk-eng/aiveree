@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Test Target</title>
+<style>body{font-family:system-ui;max-width:560px;margin:40px auto;padding:0 16px}input,button{font-size:16px;padding:8px;margin:4px 0;display:block;width:100%}</style></head>
+<body>
+  <h1>Contact a supplier</h1>
+  <p id="state">Please sign in to continue.</p>
+  <form id="f">
+    <label>Your name <input id="name" name="name"></label>
+    <label>Email <input id="email" name="email" type="email"></label>
+    <label>Message <input id="msg" name="msg"></label>
+    <button type="button" id="submit">Send enquiry</button>
+  </form>
+  <p id="result"></p>
+  <script>
+    document.getElementById('submit').addEventListener('click', function(){
+      document.getElementById('result').textContent = 'Sent. Reference AIV-123.';
+    });
+  </script>
+</body>
+</html>

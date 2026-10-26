@@ -1,0 +1,30 @@
+# Fly.io config for the Aiveree agent service.
+# Deploy:  fly launch --no-deploy  (first time, creates the app)
+#          fly secrets set INTERNAL_SECRET=... ANTHROPIC_API_KEY=... \
+#                          SUPABASE_URL=... SUPABASE_SERVICE_KEY=... \
+#                          CHROMIUM_WS=...   (Browserbase connect URL)
+#          fly deploy
+app = "aiveree-agent"
+primary_region = "lhr"            # London, close to UK users
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true       # scale to zero when idle
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  path = "/health"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+
+[[vm]]
+  # A browser needs real memory; 1GB keeps Chromium comfortable.
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 2
