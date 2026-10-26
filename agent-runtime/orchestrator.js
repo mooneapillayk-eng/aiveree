@@ -5,6 +5,7 @@
 
 const { Browser } = require('./browser');
 const { runTask, resumeTask } = require('./driver');
+const { createCloudBrowser } = require('./cloudbrowser');
 
 const active = new Map(); // run_id -> { browser, messages, toolUseId, status }
 
@@ -35,7 +36,12 @@ function persister(store, runId) {
 async function startRun({ store, run_id, user_id, task, start_url, llm, headless = true }) {
   await store.createRun({ id: run_id, user_id, task, start_url, status: 'running' });
   const browser = new Browser();
-  await browser.start({ headless });
+  // Per-run isolated cloud browser in production (with a live-view URL for
+  // human takeover); local Chromium if no provider is configured.
+  let cloud = null;
+  try { cloud = await createCloudBrowser(); } catch (e) { await store.updateRun(run_id, { thought: `cloud browser unavailable, using local: ${e.message}` }); }
+  await browser.start({ headless, wsEndpoint: cloud?.wsUrl });
+  if (cloud?.liveUrl) await store.updateRun(run_id, { live_url: cloud.liveUrl });
   const onEvent = persister(store, run_id);
   const rec = { browser, messages: null, toolUseId: null, status: 'running' };
   active.set(run_id, rec);

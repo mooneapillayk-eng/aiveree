@@ -10,12 +10,14 @@ human approval before anything irreversible**.
 
 | Piece | State |
 |---|---|
-| Browser action layer (`browser.js`) | ✅ **Working** — proven here on local Chromium (`npm run smoke`) |
-| Computer-use driver + safety loop (`driver.js`) | ✅ Built, runs with `ANTHROPIC_API_KEY` (not set in the dev box) |
-| CLI runner with human-in-the-loop (`run.js`) | ✅ Built — `node run.js "<task>"` |
-| Hosted cloud browser (Browserbase/Steel) | ⬜ Needs an account + key (`CHROMIUM_WS`) |
-| Long-running host (not Netlify) | ⬜ Needs Fly.io/Railway/Render |
-| Wired into the Aiveree app (dispatch + live view + approvals) | ⬜ Next |
+| Browser action layer (`browser.js`) | ✅ **Working** — proven on local Chromium (`npm run smoke`) |
+| Computer-use driver + safety loop (`driver.js`) | ✅ Built; loop proven via stubbed model in tests |
+| Orchestrator + store + HTTP service | ✅ Built + tested (`npm test`) |
+| Per-run cloud browser (Browserbase) | ✅ Wired (`cloudbrowser.js`); needs account keys to run |
+| Container + deploy (`Dockerfile`, `fly.toml`) | ✅ Ready — `fly deploy` |
+| Netlify bridge (`agent-dispatch/status/resume`) | ✅ Built |
+| Aiveree app — "Act" tab (dispatch + live view + approvals) | ✅ Built; app compiles |
+| **Connecting host + cloud browser + secrets** | ⬜ **You** — see `GO-LIVE.md` (~20 min, no code) |
 
 ## How it works
 

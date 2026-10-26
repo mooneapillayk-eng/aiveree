@@ -1606,6 +1606,219 @@ Requirements:
   );
 }
 
+// ─── ACT CONSOLE (computer-use execution) ─────────────────────────────────────
+// Hand Aiveree a real-world task. She drives a real browser on the server, shows
+// you the live screen, hands logins back to you, and asks before anything
+// irreversible. Backed by the agent-dispatch / agent-status / agent-resume
+// functions and the execution service.
+const ACT_EXAMPLES=[
+  "Find the cheapest UK supplier for eco-friendly kraft mailing boxes and get a quote page ready",
+  "Research three competitors' pricing pages and put the numbers side by side",
+  "Fill in my details on this form and get it ready to send (I'll approve before it goes)",
+];
+
+function AgentConsole({user,credits,onCreditUsed,mobile}){
+  const[task,setTask]=useState("");
+  const[startUrl,setStartUrl]=useState("");
+  const[runId,setRunId]=useState(null);
+  const[run,setRun]=useState(null);
+  const[steps,setSteps]=useState([]);
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState("");
+  const[note,setNote]=useState("");
+  const[showGate,setShowGate]=useState(false);
+  const[notConfigured,setNotConfigured]=useState(false);
+  const pollRef=useRef(null);
+
+  const status=run?.status;
+  const activeStatus=["running","needs_login","needs_approval"].includes(status);
+
+  // Poll for live state while a run is active.
+  useEffect(()=>{
+    if(!runId)return;
+    let stop=false;
+    const tick=async()=>{
+      try{
+        const res=await apiFetch("/.netlify/functions/agent-status",{run_id:runId});
+        if(res.ok){const d=await res.json();if(!stop){setRun(d.run);setSteps(d.steps||[]);}}
+      }catch{}
+    };
+    tick();
+    pollRef.current=setInterval(tick,2500);
+    return()=>{stop=true;clearInterval(pollRef.current);};
+  },[runId]);
+
+  // Stop polling once the run is finished.
+  useEffect(()=>{
+    if(run&&!activeStatus&&pollRef.current){clearInterval(pollRef.current);pollRef.current=null;}
+  },[status]);// eslint-disable-line
+
+  const dispatch=async()=>{
+    const t=task.trim();
+    if(!t||busy)return;
+    if(credits<=0){setShowGate(true);return;}
+    setBusy(true);setErr("");setNotConfigured(false);
+    try{
+      const res=await apiFetch("/.netlify/functions/agent-dispatch",{task:t,start_url:startUrl.trim()||undefined});
+      if(res.status===503){setNotConfigured(true);setBusy(false);return;}
+      if(res.status===402){setShowGate(true);saveCredits(0);onCreditUsed(0);setBusy(false);return;}
+      const d=await res.json();
+      if(!res.ok){setErr(d.detail||d.error||"Could not start the task.");setBusy(false);return;}
+      if(typeof d.credits_remaining==="number"){saveCredits(d.credits_remaining);onCreditUsed(d.credits_remaining);}
+      setRunId(d.run_id);setRun({status:"running",task:t});setSteps([]);
+    }catch{setErr("Something went wrong starting the task.");}
+    setBusy(false);
+  };
+
+  const resume=async(n)=>{
+    setBusy(true);
+    try{
+      await apiFetch("/.netlify/functions/agent-resume",{run_id:runId,note:n});
+      setNote("");
+      // optimistic: flip to running so the UI doesn't sit on the checkpoint
+      setRun(r=>({...r,status:"running",checkpoint_kind:null}));
+    }catch{}
+    setBusy(false);
+  };
+
+  const reset=()=>{setRunId(null);setRun(null);setSteps([]);setTask("");setStartUrl("");setErr("");};
+
+  const card={background:"#fff",border:"1px solid #e8e8e8",borderRadius:14};
+  const badge=(s)=>{
+    const map={running:["#d97706","Working"],needs_login:["#5b21b6","Waiting for you to sign in"],needs_approval:["#5b21b6","Needs your approval"],complete:["#16a34a","Done"],stopped:["#999","Stopped"],error:["#c1440e","Hit a problem"]};
+    const[c,l]=map[s]||["#999",s||""];
+    return <span style={{fontSize:11,color:c,background:`${c}14`,padding:"3px 10px",borderRadius:20,fontFamily:"Inter,sans-serif",fontWeight:500}}>{l}</span>;
+  };
+
+  // ── Empty state ──
+  if(!runId){
+    return(
+      <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+        {showGate&&<CreditGate onClose={()=>setShowGate(false)}/>}
+        <div style={{maxWidth:720,margin:"0 auto",padding:mobile?"30px 16px 80px":"52px 28px 80px"}}>
+          <div style={{textAlign:"center",marginBottom:24}}>
+            <div style={{width:52,height:52,borderRadius:14,background:"linear-gradient(135deg,#5b21b6,#a78bfa)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:16}}>🙌</div>
+            <h1 style={{fontFamily:"Inter,sans-serif",fontWeight:300,fontSize:mobile?24:32,letterSpacing:-0.5,color:"#000",marginBottom:8}}>Let Aiveree do it</h1>
+            <p style={{fontSize:14,color:"#888",fontWeight:300,fontFamily:"Inter,sans-serif",lineHeight:1.6,maxWidth:480,margin:"0 auto"}}>Give her a real task on the web. She works on a real browser, shows you the screen as she goes, hands logins back to you, and always asks before anything that can't be undone.</p>
+          </div>
+
+          {notConfigured&&(
+            <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+              <div style={{fontSize:13,color:"#92400e",fontFamily:"Inter,sans-serif",fontWeight:500,marginBottom:3}}>Execution service not connected yet</div>
+              <div style={{fontSize:12,color:"#a16207",fontFamily:"Inter,sans-serif",lineHeight:1.6}}>The engine is built and ready. It needs the host + cloud browser connected (see GO-LIVE in agent-runtime). Everything else works once those keys are set.</div>
+            </div>
+          )}
+
+          <div style={{...card,padding:mobile?16:20,marginBottom:16}}>
+            <textarea value={task} onChange={e=>setTask(e.target.value)}
+              placeholder="e.g. Find the cheapest next-day 4kg dumbbell on a UK retailer and get it to the basket (I'll approve checkout)"
+              rows={4}
+              style={{width:"100%",background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:10,padding:"13px 15px",fontSize:14,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,resize:"vertical",lineHeight:1.6,boxSizing:"border-box"}}/>
+            <input value={startUrl} onChange={e=>setStartUrl(e.target.value)} placeholder="Start at a specific website? (optional, e.g. https://amazon.co.uk)"
+              style={{width:"100%",marginTop:8,background:"#fafafa",border:"1px solid #e8e8e8",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",fontWeight:300,boxSizing:"border-box"}}/>
+            {err&&<p style={{fontSize:12,color:"#c1440e",marginTop:8,fontFamily:"Inter,sans-serif"}}>{err}</p>}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:12,gap:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>{credits} tasks left · uses 1 task</span>
+              <button onClick={dispatch} disabled={busy||!task.trim()} style={{background:"#000",border:"none",borderRadius:9999,padding:"11px 22px",fontSize:14,color:"#fff",fontWeight:500,cursor:busy||!task.trim()?"not-allowed":"pointer",opacity:busy||!task.trim()?0.4:1,fontFamily:"Inter,sans-serif"}}>{busy?"Starting…":"Do it →"}</button>
+            </div>
+          </div>
+
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
+            <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif",marginBottom:2}}>Try one of these</div>
+            {ACT_EXAMPLES.map((ex,i)=>(
+              <button key={i} onClick={()=>setTask(ex)} style={{textAlign:"left",background:"#fff",border:"1px solid #eee",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif",fontWeight:300}}>{ex}</button>
+            ))}
+          </div>
+          <p style={{fontSize:11,color:"#c9c9c9",marginTop:18,fontFamily:"Inter,sans-serif",lineHeight:1.6,textAlign:"center"}}>Aiveree never types your passwords — she hands sign-in back to you. She won't send, buy, or submit anything without your yes.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Live run ──
+  return(
+    <div style={{minHeight:"100vh",background:"#fdfdfd"}}>
+      {showGate&&<CreditGate onClose={()=>setShowGate(false)}/>}
+      <div style={{maxWidth:980,margin:"0 auto",padding:mobile?"16px 12px 80px":"22px 24px 48px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontFamily:"Inter,sans-serif",fontSize:14,fontWeight:500,color:"#000",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{run?.task||"Task"}</div>
+            <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif"}}>Aiveree is working on a real browser</div>
+          </div>
+          {badge(status)}
+          {!activeStatus&&<button onClick={reset} style={{background:"#f5f5f5",border:"1px solid #e5e5e5",borderRadius:9999,padding:"7px 14px",fontSize:12,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif"}}>New task</button>}
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"1fr 300px",gap:14,alignItems:"start"}}>
+          {/* live screen */}
+          <div style={{...card,overflow:"hidden",position:"relative",minHeight:mobile?300:460}}>
+            {run?.latest_shot
+              ? <img alt="live screen" src={`data:image/png;base64,${run.latest_shot}`} style={{width:"100%",display:"block"}}/>
+              : <div style={{padding:"60px 20px",textAlign:"center",color:"#bbb",fontFamily:"Inter,sans-serif",fontSize:13}}>Opening the browser…</div>}
+            {status==="running"&&(
+              <div style={{position:"absolute",top:10,left:10,background:"rgba(0,0,0,0.7)",color:"#fff",borderRadius:20,padding:"4px 11px",fontSize:11,fontFamily:"Inter,sans-serif",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{width:6,height:6,borderRadius:3,background:"#f0a03c",animation:"pulse 1.2s ease infinite"}}/>working
+              </div>
+            )}
+          </div>
+
+          {/* side: thought, checkpoint, action log */}
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {run?.thought&&<div style={{...card,padding:"12px 14px",fontSize:12.5,color:"#555",fontFamily:"Inter,sans-serif",lineHeight:1.6,fontWeight:300}}>💭 {run.thought}</div>}
+
+            {status==="needs_login"&&(
+              <div style={{background:"#f5f3ff",border:"1px solid #ddd6fe",borderRadius:12,padding:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#5b21b6",fontFamily:"Inter,sans-serif",marginBottom:6}}>Sign-in needed</div>
+                <p style={{fontSize:12,color:"#6d28d9",fontFamily:"Inter,sans-serif",lineHeight:1.6,marginBottom:10}}>{run.checkpoint_summary||"A login screen came up."} Aiveree won't type your password. {run.live_url?"Open the live browser, sign in, then tap continue.":"Sign in, then tap continue."}</p>
+                {run.live_url&&<a href={run.live_url} target="_blank" rel="noreferrer" style={{display:"inline-block",marginBottom:10,fontSize:12,color:"#5b21b6",fontFamily:"Inter,sans-serif",fontWeight:500}}>Open the live browser →</a>}
+                <button onClick={()=>resume("I have logged in, please continue")} disabled={busy} style={{width:"100%",background:"#5b21b6",border:"none",borderRadius:9,padding:"10px",fontSize:13,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif",opacity:busy?0.5:1}}>I've signed in, continue</button>
+              </div>
+            )}
+
+            {status==="needs_approval"&&(
+              <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:12,padding:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#92400e",fontFamily:"Inter,sans-serif",marginBottom:6}}>Approve before she does this</div>
+                <p style={{fontSize:13,color:"#78350f",fontFamily:"Inter,sans-serif",lineHeight:1.6,marginBottom:4}}>{run.checkpoint_summary}</p>
+                {run.checkpoint_details&&<p style={{fontSize:11.5,color:"#a16207",fontFamily:"Inter,sans-serif",lineHeight:1.6,marginBottom:10}}>{run.checkpoint_details}</p>}
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <button onClick={()=>resume("Approved, go ahead")} disabled={busy} style={{flex:1,background:"#16a34a",border:"none",borderRadius:9,padding:"10px",fontSize:13,color:"#fff",fontWeight:500,cursor:"pointer",fontFamily:"Inter,sans-serif",opacity:busy?0.5:1}}>Approve</button>
+                </div>
+                <input value={note} onChange={e=>setNote(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&note.trim())resume(note);}} placeholder="…or tell her what to change" style={{width:"100%",background:"#fff",border:"1px solid #fde68a",borderRadius:8,padding:"8px 11px",fontSize:12,color:"#000",outline:"none",fontFamily:"Inter,sans-serif",boxSizing:"border-box"}}/>
+              </div>
+            )}
+
+            {status==="complete"&&(
+              <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:12,padding:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#16a34a",fontFamily:"Inter,sans-serif",marginBottom:6}}>Done ✓</div>
+                <p style={{fontSize:13,color:"#166534",fontFamily:"Inter,sans-serif",lineHeight:1.7}}>{run.result||"Task complete."}</p>
+              </div>
+            )}
+            {(status==="error"||status==="stopped")&&(
+              <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:12,padding:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#c1440e",fontFamily:"Inter,sans-serif",marginBottom:6}}>{status==="error"?"Hit a problem":"Stopped"}</div>
+                <p style={{fontSize:12.5,color:"#991b1b",fontFamily:"Inter,sans-serif",lineHeight:1.6}}>{run.result||"The run didn't finish. You can try again."}</p>
+              </div>
+            )}
+
+            {steps.length>0&&(
+              <div style={{...card,padding:"10px 12px"}}>
+                <div style={{fontSize:10.5,color:"#bbb",fontFamily:"Inter,sans-serif",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>What she's done</div>
+                <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:220,overflow:"auto"}}>
+                  {steps.slice(-20).map((s,i)=>(
+                    <div key={i} style={{fontSize:11.5,color:"#666",fontFamily:"Inter,sans-serif",lineHeight:1.5}}>
+                      <span style={{color:"#a78bfa"}}>→</span> {s.action}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── BUILD STUDIO ─────────────────────────────────────────────────────────────
 // Phase 1: describe → Claude generates ONE self-contained HTML page → live
 // sandboxed preview → iterate in plain English → download. Publishing to a
@@ -2098,6 +2311,7 @@ export default function App(){
                 <button onClick={()=>setScreen("dashboard")} style={{background:"none",border:"none",color:screen==="dashboard"?"#000":"#999",fontSize:13,fontWeight:screen==="dashboard"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Dashboard</button>
                 <button onClick={()=>setScreen("projects")} style={{background:"none",border:"none",color:screen==="projects"?"#000":"#999",fontSize:13,fontWeight:screen==="projects"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Workspaces</button>
                 <button onClick={()=>setScreen("build")} style={{background:"none",border:"none",color:screen==="build"?"#000":"#999",fontSize:13,fontWeight:screen==="build"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Build</button>
+                <button onClick={()=>setScreen("act")} style={{background:"none",border:"none",color:screen==="act"?"#000":"#999",fontSize:13,fontWeight:screen==="act"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Act</button>
                 <button onClick={()=>setScreen("memory")} style={{background:"none",border:"none",color:screen==="memory"?"#000":"#999",fontSize:13,fontWeight:screen==="memory"?500:300,cursor:"pointer",padding:"5px 10px",fontFamily:"Inter,sans-serif"}}>Memory</button>
               </nav>
             )}
@@ -2121,6 +2335,7 @@ export default function App(){
       {screen==="dashboard"&&intel&&user&&<CommandCentre key={intel?.goal||"ws"} intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
       {screen==="build"&&user&&<BuildStudio user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile}/>}
+      {screen==="act"&&user&&<AgentConsole user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile}/>}
       {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
   );

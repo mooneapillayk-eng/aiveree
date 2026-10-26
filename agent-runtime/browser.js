@@ -22,10 +22,12 @@ const EXECUTABLE = resolveExecutable();
 class Browser {
   constructor() { this.browser = null; this.context = null; this.page = null; }
 
-  async start({ headless = true, width = 1280, height = 800 } = {}) {
-    // Production: connect to a hosted cloud browser if given a websocket URL.
-    if (process.env.CHROMIUM_WS) {
-      this.browser = await chromium.connectOverCDP(process.env.CHROMIUM_WS);
+  async start({ headless = true, width = 1280, height = 800, wsEndpoint = null } = {}) {
+    // Production: connect to a hosted cloud browser (Browserbase/Steel) if given
+    // a CDP websocket URL (per-run), or via the CHROMIUM_WS env for a fixed one.
+    const ws = wsEndpoint || process.env.CHROMIUM_WS;
+    if (ws) {
+      this.browser = await chromium.connectOverCDP(ws);
       this.context = this.browser.contexts()[0] || await this.browser.newContext();
     } else {
       const opts = { headless, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
