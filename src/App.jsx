@@ -1634,7 +1634,14 @@ function AgentConsole({user,credits,onCreditUsed,mobile,prefill,onPrefillUsed}){
   const[note,setNote]=useState("");
   const[showGate,setShowGate]=useState(false);
   const[notConfigured,setNotConfigured]=useState(false);
+  const[recent,setRecent]=useState([]);
   const pollRef=useRef(null);
+
+  // Load recent runs for the "pick up where you left off" list.
+  useEffect(()=>{
+    if(runId)return;
+    apiFetch("/.netlify/functions/agent-list",{}).then(r=>r.ok?r.json():{runs:[]}).then(d=>setRecent(d.runs||[])).catch(()=>{});
+  },[runId]);
 
   const status=run?.status;
   const activeStatus=["running","needs_login","needs_approval"].includes(status);
@@ -1739,6 +1746,24 @@ function AgentConsole({user,credits,onCreditUsed,mobile,prefill,onPrefillUsed}){
               <button key={i} onClick={()=>setTask(ex)} style={{textAlign:"left",background:"#fff",border:"1px solid #eee",borderRadius:10,padding:"11px 14px",fontSize:13,color:"#555",cursor:"pointer",fontFamily:"Inter,sans-serif",fontWeight:300}}>{ex}</button>
             ))}
           </div>
+
+          {recent.length>0&&(
+            <div style={{marginTop:22}}>
+              <div style={{fontSize:11,color:"#bbb",fontFamily:"Inter,sans-serif",marginBottom:7}}>Recent tasks</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {recent.map(r=>{
+                  const[c,l]=({running:["#d97706","Working"],needs_login:["#5b21b6","Waiting on you"],needs_approval:["#5b21b6","Needs approval"],complete:["#16a34a","Done"],stopped:["#999","Stopped"],error:["#c1440e","Problem"]})[r.status]||["#999",r.status||""];
+                  return(
+                    <button key={r.id} onClick={()=>{setRunId(r.id);setRun({status:r.status,task:r.task});}} style={{textAlign:"left",background:"#fff",border:"1px solid #eee",borderRadius:10,padding:"10px 13px",cursor:"pointer",fontFamily:"Inter,sans-serif",display:"flex",alignItems:"center",gap:10}}>
+                      <span style={{flex:1,minWidth:0,fontSize:13,color:"#444",fontWeight:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.task}</span>
+                      <span style={{fontSize:10,color:c,background:`${c}14`,padding:"3px 9px",borderRadius:20,fontWeight:500,flexShrink:0}}>{l}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <p style={{fontSize:11,color:"#c9c9c9",marginTop:18,fontFamily:"Inter,sans-serif",lineHeight:1.6,textAlign:"center"}}>Aiveree never types your passwords — she hands sign-in back to you. She won't send, buy, or submit anything without your yes.</p>
         </div>
       </div>
