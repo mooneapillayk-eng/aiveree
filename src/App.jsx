@@ -1019,7 +1019,7 @@ const DECK_ANIM=`
 `;
 
 // ─── COMMAND CENTRE ───────────────────────────────────────────────────────────
-function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed}){
+function CommandCentre({intel,user,mobile,onNewProject,credits,onCreditUsed,onAct}){
   const domainId=intel.domain_id||"business";
   const dc=getDomainColor(domainId);
   const de=getDomainEmoji(domainId);
@@ -1465,6 +1465,7 @@ Requirements:
                 {d.next_best_action.why&&<div style={{fontSize:13.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.5)",maxWidth:"44em",marginBottom:22}}>{d.next_best_action.why}</div>}
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                   <button onClick={()=>sendChat(d.next_best_action.cta||"Let's do this")} style={{background:"#fff",color:"#16141c",border:"none",borderRadius:9999,padding:"13px 24px",fontSize:14.5,fontWeight:600,cursor:"pointer",fontFamily:DECK_SANS}}>{d.next_best_action.cta||"Let's do this"}</button>
+                  {onAct&&<button onClick={()=>onAct(d.next_best_action.text)} style={{background:"transparent",border:"1px solid rgba(167,139,250,.5)",borderRadius:9999,padding:"13px 20px",fontSize:14.5,color:"#c4b5fd",cursor:"pointer",fontFamily:DECK_SANS}}>Have Aiveree do it →</button>}
                   <button onClick={()=>{setChatOpen(true);}} style={{background:"transparent",border:"1px solid rgba(255,255,255,.18)",borderRadius:9999,padding:"13px 20px",fontSize:14.5,color:"rgba(255,255,255,.82)",cursor:"pointer",fontFamily:DECK_SANS}}>Talk it through first</button>
                 </div>
               </div>
@@ -1562,7 +1563,10 @@ Requirements:
                     <div key={i} style={{background:i===0?"#171126":"#141020",border:`1px solid ${i===0?"rgba(240,160,60,.3)":"rgba(255,255,255,.08)"}`,borderRadius:12,padding:16}}>
                       <div style={{fontSize:15,lineHeight:1.45,fontFamily:DECK_SANS,marginBottom:8}}>{l.title}</div>
                       <div style={{fontSize:12.5,lineHeight:1.5,fontFamily:DECK_SANS,color:"rgba(255,255,255,.45)",marginBottom:14}}>{l.detail}</div>
-                      <button onClick={()=>sendChat(`Help me decide: ${l.title}`)} style={{background:i===0?"#7c3aed":"transparent",border:i===0?"none":"1px solid rgba(255,255,255,.16)",borderRadius:9999,padding:"9px 16px",fontSize:13,fontWeight:i===0?600:400,fontFamily:DECK_SANS,color:i===0?"#fff":"rgba(255,255,255,.85)",cursor:"pointer"}}>Sort this with me →</button>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <button onClick={()=>sendChat(`Help me decide: ${l.title}`)} style={{background:i===0?"#7c3aed":"transparent",border:i===0?"none":"1px solid rgba(255,255,255,.16)",borderRadius:9999,padding:"9px 16px",fontSize:13,fontWeight:i===0?600:400,fontFamily:DECK_SANS,color:i===0?"#fff":"rgba(255,255,255,.85)",cursor:"pointer"}}>Sort this with me →</button>
+                        {onAct&&<button onClick={()=>onAct(`${l.title}. ${l.detail}`)} style={{background:"transparent",border:"1px solid rgba(167,139,250,.4)",borderRadius:9999,padding:"9px 14px",fontSize:13,fontFamily:DECK_SANS,color:"#c4b5fd",cursor:"pointer"}}>Have her do it</button>}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1617,8 +1621,10 @@ const ACT_EXAMPLES=[
   "Fill in my details on this form and get it ready to send (I'll approve before it goes)",
 ];
 
-function AgentConsole({user,credits,onCreditUsed,mobile}){
-  const[task,setTask]=useState("");
+function AgentConsole({user,credits,onCreditUsed,mobile,prefill,onPrefillUsed}){
+  const[task,setTask]=useState(prefill||"");
+  // When the deck routes a task here, drop it into the box (don't auto-run).
+  useEffect(()=>{if(prefill){setTask(prefill);onPrefillUsed&&onPrefillUsed();}},[prefill]);// eslint-disable-line
   const[startUrl,setStartUrl]=useState("");
   const[runId,setRunId]=useState(null);
   const[run,setRun]=useState(null);
@@ -2197,6 +2203,7 @@ export default function App(){
   const mobile=useIsMobile();
   const[screen,setScreen]=useState("home");
   const[intel,setIntel]=useState(()=>getLocalIntel());
+  const[actPrefill,setActPrefill]=useState("");
   const[user,setUser]=useState(null);
   const[projects,setProjects]=useState(()=>getProjects());
   const[selectedDomain,setSelectedDomain]=useState(null);
@@ -2337,10 +2344,10 @@ export default function App(){
       {screen==="home"&&<Homepage onStart={startOnboarding} mobile={mobile}/>}
       {screen==="onboarding"&&<Onboarding selectedDomain={selectedDomain} initialIdea={initialIdea} onComplete={handleOnboardingComplete} mobile={mobile}/>}
       {screen==="auth"&&<AuthScreen onAuth={handleAuth} prefilledIntel={pendingIntel||intel} mobile={mobile}/>}
-      {screen==="dashboard"&&intel&&user&&<CommandCentre key={intel?.goal||"ws"} intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)}/>}
+      {screen==="dashboard"&&intel&&user&&<CommandCentre key={intel?.goal||"ws"} intel={intel} user={user} mobile={mobile} onNewProject={handleNewProject} credits={credits} onCreditUsed={nc=>setCredits(nc)} onAct={t=>{setActPrefill(t);setScreen("act");}}/>}
       {screen==="projects"&&<Projects projects={projects} onSelectProject={handleSelectProject} onNewProject={handleNewProject} mobile={mobile}/>}
       {screen==="build"&&user&&<BuildStudio user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile}/>}
-      {screen==="act"&&user&&<AgentConsole user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile}/>}
+      {screen==="act"&&user&&<AgentConsole user={user} credits={credits} onCreditUsed={nc=>setCredits(nc)} mobile={mobile} prefill={actPrefill} onPrefillUsed={()=>setActPrefill("")}/>}
       {screen==="memory"&&user&&<MemoryCentre mobile={mobile}/>}
     </div>
   );
